@@ -122,6 +122,35 @@ export async function settleReward(req: SettlementRequest): Promise<SettlementRe
   }
 }
 
+export interface TransactionStatus {
+  status: "settled" | "settling" | "failed"
+  txHash: string | null
+}
+
+/**
+ * Look up the current on-chain state of a Circle transaction.
+ * Used to reconcile rewards stuck in "settling" after confirmation.
+ */
+export async function getTransactionStatus(externalId: string): Promise<TransactionStatus | null> {
+  if (!isCircleConfigured()) return null
+
+  try {
+    const client = getCircleClient()
+    const res = await client.getTransaction({ id: externalId })
+    const tx = res.data?.transaction
+    if (!tx) return null
+
+    const state = tx.state
+    let status: TransactionStatus["status"] = "settling"
+    if (state === "COMPLETE" || state === "CONFIRMED") status = "settled"
+    else if (state === "FAILED" || state === "CANCELLED" || state === "DENIED") status = "failed"
+
+    return { status, txHash: tx.txHash ?? null }
+  } catch {
+    return null
+  }
+}
+
 /**
  * Deterministic local settlement used when Circle is not configured.
  * Produces a pseudo tx hash so the UI can show a settled reward.

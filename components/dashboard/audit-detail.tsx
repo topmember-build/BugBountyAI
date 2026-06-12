@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import useSWR from "swr"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -50,10 +51,35 @@ const rewardStyles: Record<string, string> = {
 }
 
 export function AuditDetail({ auditId }: { auditId: string }) {
-  const { data, isLoading } = useSWR<{ audit: Audit; findings: Finding[] }>(
+  const { data, isLoading, mutate } = useSWR<{ audit: Audit; findings: Finding[] }>(
     `/api/audits/${auditId}`,
     fetcher,
   )
+
+  const hasSettling = data?.findings?.some((f) => f.reward_status === "settling") ?? false
+
+  // While rewards are settling on-chain, reconcile with Circle and refresh.
+  useEffect(() => {
+    if (!hasSettling) return
+    let cancelled = false
+
+    const reconcile = async () => {
+      try {
+        const res = await fetch("/api/rewards/reconcile", { method: "POST" })
+        const json = await res.json()
+        if (!cancelled && json.reconciled > 0) mutate()
+      } catch {
+        // Transient errors are fine; the interval retries.
+      }
+    }
+
+    reconcile()
+    const interval = setInterval(reconcile, 8000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [hasSettling, mutate])
 
   if (isLoading) {
     return (
