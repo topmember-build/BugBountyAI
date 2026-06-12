@@ -1,17 +1,19 @@
 import "server-only"
 
+import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets"
+
 /**
  * Circle / Arc settlement integration.
  *
- * Rewards are settled in USDC through Circle's API. When CIRCLE_API_KEY is
- * configured we make a real transfer request; otherwise we fall back to a
- * deterministic local settlement so the product remains fully functional in
- * preview/development without leaking credentials.
+ * Rewards are settled in USDC through Circle's developer-controlled wallets.
+ * The official SDK handles entity secret ciphertext encryption per request.
+ * When credentials are missing we fall back to a deterministic local
+ * settlement so the product remains fully functional in preview/development.
  */
 
-const CIRCLE_API_BASE = process.env.CIRCLE_API_BASE ?? "https://api.circle.com"
 const CIRCLE_API_KEY = process.env.CIRCLE_API_KEY
 const CIRCLE_WALLET_ID = process.env.CIRCLE_WALLET_ID
+const CIRCLE_ENTITY_SECRET = process.env.CIRCLE_ENTITY_SECRET
 
 export interface SettlementRequest {
   amount: number
@@ -31,12 +33,42 @@ export interface SettlementResult {
 }
 
 export function isCircleConfigured(): boolean {
-  return Boolean(CIRCLE_API_KEY && CIRCLE_WALLET_ID)
+  return Boolean(CIRCLE_API_KEY && CIRCLE_WALLET_ID && CIRCLE_ENTITY_SECRET)
+}
+
+let circleClient: ReturnType<typeof initiateDeveloperControlledWalletsClient> | null = null
+
+function getCircleClient() {
+  if (!circleClient) {
+    circleClient = initiateDeveloperControlledWalletsClient({
+      apiKey: CIRCLE_API_KEY!,
+      entitySecret: CIRCLE_ENTITY_SECRET!,
+    })
+  }
+  return circleClient
+}
+
+/** Cached USDC token id resolved from the wallet's balances. */
+let cachedUsdcTokenId: string | null = process.env.CIRCLE_USDC_TOKEN_ID ?? null
+
+async function resolveUsdcTokenId(): Promise<string | null> {
+  if (cachedUsdcTokenId) return cachedUsdcTokenId
+
+  const client = getCircleClient()
+  const res = await client.getWalletTokenBalance({ id: CIRCLE_WALLET_ID! })
+  const balances = res.data?.tokenBalances ?? []
+  const usdc = balances.find((b) => b.token?.symbol?.toUpperCase().includes("USDC"))
+  if (usdc?.token?.id) {
+    cachedUsdcTokenId = usdc.token.id
+    return cachedUsdcTokenId
+  }
+  return null
 }
 
 /**
  * Settle a USDC reward to the agent's wallet via Circle.
- * Uses the Circle transfers API (developer-controlled wallets).
+ * Uses the Circle SDK (developer-controlled wallets), which generates the
+ * required entity secret ciphertext for each transaction.
  */
 export async function settleReward(req: SettlementRequest): Promise<SettlementResult> {
   // No credentials configured -> simulate a successful on-chain settlement.
@@ -45,54 +77,47 @@ export async function settleReward(req: SettlementRequest): Promise<SettlementRe
   }
 
   try {
-    const res = await fetch(`${CIRCLE_API_BASE}/v1/w3s/developer/transactions/transfer`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${CIRCLE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        idempotencyKey: req.idempotencyKey,
-        walletId: CIRCLE_WALLET_ID,
-        destinationAddress: req.destinationAddress,
-        tokenId: process.env.CIRCLE_USDC_TOKEN_ID,
-        amounts: [req.amount.toString()],
-        blockchain: req.chain ?? process.env.CIRCLE_CHAIN ?? "ARB",
-        feeLevel: "MEDIUM",
-      }),
-    })
+    const client = getCircleClient()
+    const tokenId = await resolveUsdcTokenId()
 
-    if (!res.ok) {
-      const text = await res.text()
+    if (!tokenId) {
       return {
         status: "failed",
         txHash: null,
         externalId: null,
         provider: "circle_arc",
         simulated: false,
-        error: `Circle API ${res.status}: ${text.slice(0, 200)}`,
+        error: "No USDC token found in the Circle wallet. Fund the wallet with USDC first.",
       }
     }
 
-    const data = (await res.json()) as {
-      data?: { id?: string; txHash?: string; state?: string }
-    }
-    const state = data.data?.state
+    const res = await client.createTransaction({
+      walletId: CIRCLE_WALLET_ID!,
+      tokenId,
+      destinationAddress: req.destinationAddress,
+      amount: [req.amount.toFixed(6)],
+      fee: { type: "level", config: { feeLevel: "MEDIUM" } },
+      idempotencyKey: req.idempotencyKey,
+    })
+
+    const tx = res.data
+    const state = tx?.state
     return {
       status: state === "COMPLETE" ? "settled" : "settling",
-      txHash: data.data?.txHash ?? null,
-      externalId: data.data?.id ?? null,
+      txHash: null,
+      externalId: tx?.id ?? null,
       provider: "circle_arc",
       simulated: false,
     }
   } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown Circle error"
     return {
       status: "failed",
       txHash: null,
       externalId: null,
       provider: "circle_arc",
       simulated: false,
-      error: err instanceof Error ? err.message : "Unknown Circle error",
+      error: message.slice(0, 300),
     }
   }
 }
