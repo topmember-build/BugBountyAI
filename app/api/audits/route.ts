@@ -143,7 +143,8 @@ export async function POST(request: NextRequest) {
       const settlement = await settleReward({
         amount: Number(finding.reward_amount),
         destinationAddress: destination,
-        idempotencyKey: `finding-${finding.id}`,
+        // Circle requires idempotency keys to be UUIDs; the finding id already is one.
+        idempotencyKey: finding.id,
       })
 
       await supabase
