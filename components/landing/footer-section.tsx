@@ -2,6 +2,7 @@
 
 import { ArrowUpRight } from "lucide-react";
 import { AnimatedWave } from "./animated-wave";
+import { LogoMark } from "./logo";
 
 const footerLinks = {
   Product: [
@@ -50,10 +51,10 @@ export function FooterSection() {
             {/* Brand Column */}
             <div className="col-span-2">
               <a href="#" className="inline-flex items-center gap-2.5 mb-6">
-                <span className="w-8 h-8 rounded-md bg-primary text-primary-foreground font-display text-lg flex items-center justify-center">
-                  B
+                <LogoMark className="w-10 h-10" />
+                <span className="text-2xl font-display">
+                  BugBounty<span className="text-primary">AI</span>
                 </span>
-                <span className="text-2xl font-display">BugBountyAI</span>
               </a>
 
               <p className="text-muted-foreground leading-relaxed mb-8 max-w-xs">

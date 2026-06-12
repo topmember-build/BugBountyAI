@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
+import { LogoMark } from "./logo";
 
 const navLinks = [
   { name: "Agents", href: "#agents" },
@@ -45,14 +46,12 @@ export function Navigation() {
         >
           {/* Logo */}
           <a href="#" className="flex items-center gap-2.5 group">
-            <span
-              className={`flex items-center justify-center rounded-md bg-primary text-primary-foreground font-display transition-all duration-500 ${
-                isScrolled ? "w-7 h-7 text-base" : "w-8 h-8 text-lg"
-              }`}
-            >
-              B
+            <LogoMark
+              className={`transition-all duration-500 ${isScrolled ? "w-8 h-8" : "w-10 h-10"}`}
+            />
+            <span className={`font-display tracking-tight transition-all duration-500 ${isScrolled ? "text-xl" : "text-2xl"}`}>
+              BugBounty<span className="text-primary">AI</span>
             </span>
-            <span className={`font-display tracking-tight transition-all duration-500 ${isScrolled ? "text-xl" : "text-2xl"}`}>BugBountyAI</span>
           </a>
 
           {/* Desktop Navigation */}
