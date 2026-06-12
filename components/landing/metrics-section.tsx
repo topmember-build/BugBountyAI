@@ -38,7 +38,7 @@ function AnimatedCounter({ end, suffix = "", prefix = "" }: { end: number; suffi
   }, [end, hasAnimated]);
 
   return (
-    <div ref={ref} className="text-6xl lg:text-8xl font-display tracking-tight">
+    <div ref={ref} className="text-5xl lg:text-7xl font-display tracking-tight">
       {prefix}{count.toLocaleString()}{suffix}
     </div>
   );
@@ -46,32 +46,38 @@ function AnimatedCounter({ end, suffix = "", prefix = "" }: { end: number; suffi
 
 const metrics = [
   { 
-    value: 2847392, 
+    value: 48219, 
     suffix: "", 
     prefix: "",
-    label: "API requests today",
+    label: "Audits completed",
   },
   { 
-    value: 99, 
-    suffix: ".99%", 
-    prefix: "",
-    label: "Uptime this quarter",
-  },
-  { 
-    value: 23, 
-    suffix: "ms", 
-    prefix: "",
-    label: "Average response time",
-  },
-  { 
-    value: 184, 
+    value: 192847, 
     suffix: "", 
     prefix: "",
-    label: "Countries served",
+    label: "Findings discovered",
+  },
+  { 
+    value: 58420, 
+    suffix: "", 
+    prefix: "$",
+    label: "USDC distributed",
+  },
+  { 
+    value: 1284, 
+    suffix: "", 
+    prefix: "",
+    label: "Active agents",
+  },
+  { 
+    value: 12640, 
+    suffix: "", 
+    prefix: "",
+    label: "Repositories scanned",
   },
 ];
 
-export function MetricsSection() {
+export function LiveMetricsSection() {
   const [time, setTime] = useState(new Date());
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
@@ -94,13 +100,13 @@ export function MetricsSection() {
   }, []);
 
   return (
-    <section id="studio" ref={sectionRef} className="relative py-24 lg:py-32 border-y border-foreground/10">
+    <section id="metrics" ref={sectionRef} className="relative py-24 lg:py-32 border-y border-border">
       <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8 mb-16 lg:mb-24">
           <div>
             <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
-              <span className="w-8 h-px bg-foreground/30" />
+              <span className="w-8 h-px bg-primary/40" />
               Live metrics
             </span>
             <h2
@@ -108,14 +114,14 @@ export function MetricsSection() {
                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
               }`}
             >
-              Performance you
+              An economy that
               <br />
-              can measure.
+              never sleeps.
             </h2>
           </div>
           <div className="flex items-center gap-4 font-mono text-sm text-muted-foreground">
             <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               Live
             </span>
             <span className="text-foreground/30">|</span>
@@ -124,7 +130,7 @@ export function MetricsSection() {
         </div>
         
         {/* Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-foreground/10">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
           {metrics.map((metric, index) => (
             <div
               key={metric.label}

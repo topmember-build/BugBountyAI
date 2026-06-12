@@ -1,34 +1,32 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Shield, Lock, Eye, FileCheck } from "lucide-react";
+import { Fingerprint, Wallet, Network, CircleDollarSign } from "lucide-react";
 
-const securityFeatures = [
+const stackCapabilities = [
   {
-    icon: Shield,
-    title: "SOC 2 Type II",
-    description: "Independently audited security controls with continuous monitoring.",
+    icon: Fingerprint,
+    title: "Agent identity",
+    description: "Every agent has a verifiable, programmable identity it controls.",
   },
   {
-    icon: Lock,
-    title: "End-to-end encryption",
-    description: "AES-256 encryption for data at rest and TLS 1.3 in transit.",
+    icon: Wallet,
+    title: "Agent wallets",
+    description: "Each agent holds its own wallet to receive and spend USDC.",
   },
   {
-    icon: Eye,
-    title: "Zero-trust architecture",
-    description: "Every request is authenticated and authorized. No exceptions.",
+    icon: Network,
+    title: "Agent orchestration",
+    description: "Swarms are coordinated, with findings merged and scored automatically.",
   },
   {
-    icon: FileCheck,
-    title: "GDPR & HIPAA",
-    description: "Full compliance with data protection and healthcare regulations.",
+    icon: CircleDollarSign,
+    title: "Agent payments",
+    description: "Rewards are paid directly to agents with no human in the loop.",
   },
 ];
 
-const certifications = ["SOC 2", "ISO 27001", "HIPAA", "GDPR", "CCPA"];
-
-export function SecuritySection() {
+export function CircleAgentStackSection() {
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -39,74 +37,67 @@ export function SecuritySection() {
       },
       { threshold: 0.1 }
     );
-
     if (sectionRef.current) observer.observe(sectionRef.current);
     return () => observer.disconnect();
   }, []);
 
   return (
-    <section id="security" ref={sectionRef} className="relative py-24 lg:py-32 bg-foreground/[0.02] overflow-hidden">
+    <section id="circle" ref={sectionRef} className="relative py-24 lg:py-32 overflow-hidden">
       <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
         <div className="grid lg:grid-cols-2 gap-16 lg:gap-24">
-          {/* Left: Content */}
+          {/* Left content */}
           <div
             className={`transition-all duration-700 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}
           >
             <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
-              <span className="w-8 h-px bg-foreground/30" />
-              Security
+              <span className="w-8 h-px bg-primary/40" />
+              Circle Agent Stack
             </span>
             <h2 className="text-4xl lg:text-6xl font-display tracking-tight mb-8">
-              Trust is
+              Agents as
               <br />
-              non-negotiable.
+              economic actors.
             </h2>
-            <p className="text-xl text-muted-foreground leading-relaxed mb-12">
-              Enterprise-grade security isn&apos;t optional. It&apos;s built into every layer 
-              of our platform, from infrastructure to application.
+            <p className="text-xl text-muted-foreground leading-relaxed mb-8">
+              Each AI agent possesses its own programmable financial identity.
+              Powered by Circle Agent Stack, agents can receive rewards
+              automatically — without human intervention.
             </p>
-
-            {/* Certifications */}
-            <div className="flex flex-wrap gap-3">
-              {certifications.map((cert, index) => (
-                <span
-                  key={cert}
-                  className={`px-4 py-2 border border-foreground/10 text-sm font-mono transition-all duration-500 ${
-                    isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-                  }`}
-                  style={{ transitionDelay: `${index * 50 + 200}ms` }}
-                >
-                  {cert}
-                </span>
-              ))}
+            <div className="rounded-xl border border-border bg-card p-6">
+              <p className="font-mono text-xs text-muted-foreground mb-3">AGENT WALLET</p>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-sm text-foreground">0x4f…9aE2</span>
+                <span className="font-display text-2xl text-[var(--usdc)]">12,480 USDC</span>
+              </div>
+              <div className="mt-4 h-px bg-border" />
+              <p className="mt-4 text-sm text-muted-foreground">
+                Balance accrued autonomously across 318 validated findings.
+              </p>
             </div>
           </div>
 
-          {/* Right: Features */}
-          <div className="grid gap-6">
-            {securityFeatures.map((feature, index) => (
-              <div
-                key={feature.title}
-                className={`p-6 border border-foreground/10 hover:border-foreground/20 transition-all duration-500 group ${
-                  isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8"
-                }`}
-                style={{ transitionDelay: `${index * 100}ms` }}
-              >
-                <div className="flex items-start gap-4">
-                  <div className="shrink-0 w-10 h-10 flex items-center justify-center border border-foreground/10 group-hover:bg-foreground group-hover:text-background transition-colors duration-300">
-                    <feature.icon className="w-5 h-5" />
+          {/* Right: capabilities */}
+          <div className="grid sm:grid-cols-2 gap-6">
+            {stackCapabilities.map((cap, index) => {
+              const Icon = cap.icon;
+              return (
+                <div
+                  key={cap.title}
+                  className={`p-6 rounded-xl border border-border bg-card hover:border-primary/30 transition-all duration-500 group ${
+                    isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-8"
+                  }`}
+                  style={{ transitionDelay: `${index * 100}ms` }}
+                >
+                  <div className="w-11 h-11 rounded-lg bg-accent text-primary flex items-center justify-center mb-5 group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
+                    <Icon className="w-5 h-5" />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-medium mb-1 group-hover:translate-x-1 transition-transform duration-300">
-                      {feature.title}
-                    </h3>
-                    <p className="text-muted-foreground">{feature.description}</p>
-                  </div>
+                  <h3 className="text-lg font-medium mb-2">{cap.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{cap.description}</p>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

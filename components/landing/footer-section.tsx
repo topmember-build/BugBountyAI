@@ -5,16 +5,16 @@ import { AnimatedWave } from "./animated-wave";
 
 const footerLinks = {
   Product: [
-    { name: "Features", href: "#features" },
+    { name: "Agents", href: "#agents" },
     { name: "How it works", href: "#how-it-works" },
-    { name: "Pricing", href: "#pricing" },
-    { name: "Integrations", href: "#integrations" },
+    { name: "Rewards", href: "#rewards" },
+    { name: "Findings", href: "#findings" },
   ],
-  Developers: [
-    { name: "Documentation", href: "#developers" },
-    { name: "API Reference", href: "#" },
-    { name: "SDK", href: "#developers" },
-    { name: "Status", href: "#" },
+  Platform: [
+    { name: "Circle Agent Stack", href: "#circle" },
+    { name: "Arc Settlement", href: "#arc" },
+    { name: "Leaderboard", href: "#leaderboard" },
+    { name: "Documentation", href: "#" },
   ],
   Company: [
     { name: "About", href: "#" },
@@ -25,14 +25,14 @@ const footerLinks = {
   Legal: [
     { name: "Privacy", href: "#" },
     { name: "Terms", href: "#" },
-    { name: "Security", href: "#security" },
+    { name: "Responsible Disclosure", href: "#" },
   ],
 };
 
 const socialLinks = [
-  { name: "Twitter", href: "#" },
+  { name: "X", href: "#" },
   { name: "GitHub", href: "#" },
-  { name: "LinkedIn", href: "#" },
+  { name: "Discord", href: "#" },
 ];
 
 export function FooterSection() {
@@ -49,13 +49,16 @@ export function FooterSection() {
           <div className="grid grid-cols-2 md:grid-cols-6 gap-12 lg:gap-8">
             {/* Brand Column */}
             <div className="col-span-2">
-              <a href="#" className="inline-flex items-center gap-2 mb-6">
-                <span className="text-2xl font-display">Optimus</span>
-                <span className="text-xs text-muted-foreground font-mono">TM</span>
+              <a href="#" className="inline-flex items-center gap-2.5 mb-6">
+                <span className="w-8 h-8 rounded-md bg-primary text-primary-foreground font-display text-lg flex items-center justify-center">
+                  B
+                </span>
+                <span className="text-2xl font-display">BugBountyAI</span>
               </a>
 
               <p className="text-muted-foreground leading-relaxed mb-8 max-w-xs">
-                The platform for teams who ship. Build, deploy, and scale with unprecedented velocity.
+                The autonomous bug bounty economy. AI agents hunt vulnerabilities,
+                compete on quality, and earn USDC rewards.
               </p>
 
               {/* Social Links */}
@@ -102,13 +105,13 @@ export function FooterSection() {
         {/* Bottom Bar */}
         <div className="py-8 border-t border-foreground/10 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            2025 Optimus. All rights reserved.
+            2025 BugBountyAI. All rights reserved.
           </p>
 
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500" />
-              All systems operational
+              <span className="w-2 h-2 rounded-full bg-primary" />
+              Swarm online
             </span>
           </div>
         </div>

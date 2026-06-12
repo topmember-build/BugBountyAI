@@ -4,39 +4,50 @@ import { useEffect, useRef, useState } from "react";
 
 const steps = [
   {
-    number: "I",
-    title: "Connect your tools",
-    description: "Integrate with your existing stack in minutes. We support 200+ data sources out of the box.",
-    code: `import { optimus } from '@optimus/core'
+    number: "01",
+    title: "Upload your code",
+    description: "Connect a GitHub repository, drop a ZIP file, paste a smart contract, or upload source code directly.",
+    code: `$ bugbounty upload --repo github.com/acme/api
 
-optimus.connect({
-  source: 'your-database',
-  sync: true
-})`,
+  ↳ Cloning repository...
+  ↳ 1,284 files indexed
+  ↳ Languages: TypeScript, Solidity
+  ✓ Ready for audit`,
   },
   {
-    number: "II",
-    title: "Build your workflow",
-    description: "Design powerful automations with our visual builder or write code directly.",
-    code: `optimus.workflow('process', {
-  trigger: 'event',
-  actions: [
-    'validate',
-    'transform', 
-    'deliver'
-  ]
-})`,
+    number: "02",
+    title: "Launch the audit swarm",
+    description: "Selected AI agents begin analysis simultaneously, each scanning for their specialty.",
+    code: `$ bugbounty audit --swarm
+
+  ↳ Security Agent      online
+  ↳ Logic Agent         online
+  ↳ Dependency Agent    online
+  ↳ Smart Contract Agent online
+  ✓ 4 agents deployed`,
   },
   {
-    number: "III",
-    title: "Ship to production",
-    description: "Deploy globally with zero configuration. Your app goes live in under 30 seconds.",
-    code: `optimus.deploy({
-  target: 'production',
-  regions: 'auto'
-})
+    number: "03",
+    title: "Agents submit findings",
+    description: "Each agent independently reports vulnerabilities. The orchestrator merges duplicates and scores confidence.",
+    code: `[orchestrator] receiving findings...
 
-// Deployed to 12 regions`,
+  Security Agent     → 7 findings
+  Logic Agent        → 3 findings
+  Dependency Agent   → 5 findings
+  → merging 4 duplicates
+  ✓ 11 unique findings`,
+  },
+  {
+    number: "04",
+    title: "Findings ranked & rewarded",
+    description: "Critical findings receive higher rewards. USDC settles through Arc, and agent reputation updates instantly.",
+    code: `[rewards] distributing via Arc...
+
+  CRITICAL  reentrancy   → $0.050
+  HIGH      auth bypass  → $0.020
+  MEDIUM    open redirect→ $0.010
+  ✓ Settled in 0.8s · USDC delivered`,
   },
 ];
 
@@ -71,7 +82,7 @@ export function HowItWorksSection() {
       className="relative py-24 lg:py-32 bg-foreground text-background overflow-hidden"
     >
       {/* Diagonal lines pattern */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none">
+      <div className="absolute inset-0 opacity-[0.04] pointer-events-none">
         <div className="absolute inset-0" style={{
           backgroundImage: `repeating-linear-gradient(
             -45deg,
@@ -88,16 +99,16 @@ export function HowItWorksSection() {
         <div className="mb-16 lg:mb-24">
           <span className="inline-flex items-center gap-3 text-sm font-mono text-background/50 mb-6">
             <span className="w-8 h-px bg-background/30" />
-            Process
+            How it works
           </span>
           <h2
             className={`text-4xl lg:text-6xl font-display tracking-tight transition-all duration-700 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            Three steps.
+            Upload once.
             <br />
-            <span className="text-background/50">Infinite possibilities.</span>
+            <span className="text-background/50">Let the swarm compete.</span>
           </h2>
         </div>
 
@@ -115,7 +126,7 @@ export function HowItWorksSection() {
                 }`}
               >
                 <div className="flex items-start gap-6">
-                  <span className="font-display text-3xl text-background/30">{step.number}</span>
+                  <span className="font-mono text-sm text-background/40 mt-2">{step.number}</span>
                   <div className="flex-1">
                     <h3 className="text-2xl lg:text-3xl font-display mb-3 group-hover:translate-x-2 transition-transform duration-300">
                       {step.title}
@@ -128,7 +139,7 @@ export function HowItWorksSection() {
                     {activeStep === index && (
                       <div className="mt-4 h-px bg-background/20 overflow-hidden">
                         <div 
-                          className="h-full bg-background w-0"
+                          className="h-full bg-primary w-0"
                           style={{
                             animation: 'progress 5s linear forwards'
                           }}
@@ -143,7 +154,7 @@ export function HowItWorksSection() {
 
           {/* Code display */}
           <div className="lg:sticky lg:top-32 self-start">
-            <div className="border border-background/10 overflow-hidden">
+            <div className="border border-background/10 rounded-xl overflow-hidden bg-background/[0.03]">
               {/* Window header */}
               <div className="px-6 py-4 border-b border-background/10 flex items-center justify-between">
                 <div className="flex gap-2">
@@ -151,12 +162,12 @@ export function HowItWorksSection() {
                   <div className="w-3 h-3 rounded-full bg-background/20" />
                   <div className="w-3 h-3 rounded-full bg-background/20" />
                 </div>
-                <span className="text-xs font-mono text-background/40">workflow.ts</span>
+                <span className="text-xs font-mono text-background/40">audit.log</span>
               </div>
 
               {/* Code content */}
               <div className="p-8 font-mono text-sm min-h-[280px]">
-                <pre className="text-background/70">
+                <pre className="text-background/70 whitespace-pre-wrap">
                   {steps[activeStep].code.split('\n').map((line, lineIndex) => (
                     <div 
                       key={`${activeStep}-${lineIndex}`} 
@@ -165,14 +176,13 @@ export function HowItWorksSection() {
                         animationDelay: `${lineIndex * 80}ms`,
                       }}
                     >
-                      <span className="text-background/20 select-none w-8 inline-block">{lineIndex + 1}</span>
                       <span className="inline-flex">
                         {line.split('').map((char, charIndex) => (
                           <span
                             key={`${activeStep}-${lineIndex}-${charIndex}`}
                             className="code-char-reveal"
                             style={{
-                              animationDelay: `${lineIndex * 80 + charIndex * 15}ms`,
+                              animationDelay: `${lineIndex * 80 + charIndex * 12}ms`,
                             }}
                           >
                             {char === ' ' ? '\u00A0' : char}
@@ -186,8 +196,8 @@ export function HowItWorksSection() {
 
               {/* Status */}
               <div className="px-6 py-4 border-t border-background/10 flex items-center gap-3">
-                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-xs font-mono text-background/40">Ready</span>
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-xs font-mono text-background/40">Orchestrator active</span>
               </div>
             </div>
           </div>

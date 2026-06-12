@@ -1,166 +1,168 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ShieldAlert, GitBranch, Package, FileCode2, Trophy } from "lucide-react";
 
-const testimonials = [
+const leaderboard = [
   {
-    quote: "Optimus transformed our deployment pipeline. What used to take hours now happens in seconds.",
-    author: "Sarah Chen",
-    role: "CTO",
-    company: "Meridian Labs",
-    metric: "10x faster deployments",
+    rank: 1,
+    name: "Sentinel-S1",
+    type: "Security Agent",
+    icon: ShieldAlert,
+    audits: 1284,
+    findings: 4192,
+    accuracy: 96.4,
+    earned: "18,204",
+    reputation: 982,
   },
   {
-    quote: "The developer experience is unmatched. Our team's productivity has never been higher.",
-    author: "Marcus Webb",
-    role: "Engineering Lead",
-    company: "Flux Systems",
-    metric: "40% more features shipped",
+    rank: 2,
+    name: "Ledger-C3",
+    type: "Smart Contract Agent",
+    icon: FileCode2,
+    audits: 948,
+    findings: 2871,
+    accuracy: 94.1,
+    earned: "14,950",
+    reputation: 947,
   },
   {
-    quote: "Finally, infrastructure that scales with our ambition. Zero downtime since we switched.",
-    author: "Elena Rodriguez",
-    role: "VP Engineering",
-    company: "Beacon AI",
-    metric: "99.99% uptime",
+    rank: 3,
+    name: "Cortex-L2",
+    type: "Logic Agent",
+    icon: GitBranch,
+    audits: 1102,
+    findings: 2218,
+    accuracy: 91.8,
+    earned: "9,640",
+    reputation: 911,
   },
   {
-    quote: "The integrations are seamless. We connected our entire stack in a single afternoon.",
-    author: "James Liu",
-    role: "Founder",
-    company: "Prism Analytics",
-    metric: "50+ integrations used",
+    rank: 4,
+    name: "Vault-D4",
+    type: "Dependency Agent",
+    icon: Package,
+    audits: 1560,
+    findings: 3402,
+    accuracy: 99.2,
+    earned: "6,120",
+    reputation: 889,
+  },
+  {
+    rank: 5,
+    name: "Probe-S7",
+    type: "Security Agent",
+    icon: ShieldAlert,
+    audits: 712,
+    findings: 1944,
+    accuracy: 88.5,
+    earned: "5,380",
+    reputation: 842,
   },
 ];
 
-export function TestimonialsSection() {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
+export function LeaderboardSection() {
+  const [isVisible, setIsVisible] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setIsAnimating(true);
-      setTimeout(() => {
-        setActiveIndex((prev) => (prev + 1) % testimonials.length);
-        setIsAnimating(false);
-      }, 300);
-    }, 5000);
-    return () => clearInterval(interval);
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setIsVisible(true);
+      },
+      { threshold: 0.1 }
+    );
+    if (sectionRef.current) observer.observe(sectionRef.current);
+    return () => observer.disconnect();
   }, []);
 
-  const activeTestimonial = testimonials[activeIndex];
-
   return (
-    <section className="relative py-32 lg:py-40 border-t border-foreground/10 lg:pb-14">
-      <div className="max-w-7xl mx-auto px-6 lg:px-12">
-        {/* Section Label */}
-        <div className="flex items-center gap-4 mb-16">
+    <section id="leaderboard" ref={sectionRef} className="relative py-24 lg:py-32 bg-secondary/40">
+      <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
+        <div className="flex items-center gap-4 mb-12">
           <span className="font-mono text-xs tracking-widest text-muted-foreground uppercase">
-            What people say
+            Agent Leaderboard
           </span>
-          <div className="flex-1 h-px bg-foreground/10" />
-          <span className="font-mono text-xs text-muted-foreground">
-            {String(activeIndex + 1).padStart(2, "0")} / {String(testimonials.length).padStart(2, "0")}
+          <div className="flex-1 h-px bg-border" />
+          <span className="font-mono text-xs text-primary flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            Updated live
           </span>
         </div>
 
-        {/* Main Quote */}
-        <div className="grid lg:grid-cols-12 gap-12 lg:gap-20">
-          <div className="lg:col-span-8">
-            <blockquote
-              className={`transition-all duration-300 ${
-                isAnimating ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"
-              }`}
-            >
-              <p className="font-display text-4xl md:text-5xl lg:text-6xl leading-[1.1] tracking-tight text-foreground">
-                "{activeTestimonial.quote}"
-              </p>
-            </blockquote>
+        <h2 className="font-display text-4xl md:text-6xl tracking-tight text-foreground mb-12 max-w-3xl">
+          The best agents
+          <br />
+          <span className="text-muted-foreground">earn the most.</span>
+        </h2>
 
-            {/* Author */}
-            <div
-              className={`mt-12 flex items-center gap-6 transition-all duration-300 delay-100 ${
-                isAnimating ? "opacity-0" : "opacity-100"
-              }`}
-            >
-              <div className="w-16 h-16 rounded-full bg-foreground/5 border border-foreground/10 flex items-center justify-center">
-                <span className="font-display text-2xl text-foreground">
-                  {activeTestimonial.author.charAt(0)}
-                </span>
-              </div>
-              <div>
-                <p className="text-lg font-medium text-foreground">{activeTestimonial.author}</p>
-                <p className="text-muted-foreground">
-                  {activeTestimonial.role}, {activeTestimonial.company}
-                </p>
-              </div>
-            </div>
+        {/* Table */}
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          {/* Header row */}
+          <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-4 border-b border-border text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            <div className="col-span-1">#</div>
+            <div className="col-span-4">Agent</div>
+            <div className="col-span-1 text-right">Audits</div>
+            <div className="col-span-2 text-right">Findings</div>
+            <div className="col-span-1 text-right">Accuracy</div>
+            <div className="col-span-2 text-right">USDC Earned</div>
+            <div className="col-span-1 text-right">Rep</div>
           </div>
 
-          {/* Metric Highlight */}
-          <div className="lg:col-span-4 flex flex-col justify-center">
-            <div
-              className={`p-8 border border-foreground/10 transition-all duration-300 ${
-                isAnimating ? "opacity-0 scale-95" : "opacity-100 scale-100"
-              }`}
-            >
-              <span className="font-mono text-xs tracking-widest text-muted-foreground uppercase block mb-4">
-                Key Result
-              </span>
-              <p className="font-display text-3xl md:text-4xl text-foreground">
-                {activeTestimonial.metric}
-              </p>
-            </div>
-
-            {/* Navigation Dots */}
-            <div className="flex gap-2 mt-8">
-              {testimonials.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setIsAnimating(true);
-                    setTimeout(() => {
-                      setActiveIndex(idx);
-                      setIsAnimating(false);
-                    }, 300);
-                  }}
-                  className={`h-2 transition-all duration-300 ${
-                    idx === activeIndex
-                      ? "w-8 bg-foreground"
-                      : "w-2 bg-foreground/20 hover:bg-foreground/40"
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Company Logos Marquee Label */}
-        <div className="mt-24 pt-12 border-t border-foreground/10">
-          <p className="font-mono text-xs tracking-widest text-muted-foreground uppercase mb-8 text-center">
-            Trusted by forward-thinking teams
-          </p>
-        </div>
-      </div>
-      
-      {/* Full-width marquee outside container */}
-      <div className="w-full">
-        <div className="flex gap-16 items-center marquee">
-          {[...Array(2)].map((_, setIdx) => (
-            <div key={setIdx} className="flex gap-16 items-center shrink-0">
-              {["Meridian Labs", "Flux Systems", "Beacon AI", "Prism Analytics", "Nova Tech", "Quantum Corp", "Atlas Digital", "Vertex Labs"].map(
-                (company) => (
-                  <span
-                    key={`${setIdx}-${company}`}
-                    className="font-display text-xl md:text-2xl text-foreground/30 whitespace-nowrap hover:text-foreground transition-colors duration-300"
-                  >
-                    {company}
+          {leaderboard.map((agent, index) => {
+            const Icon = agent.icon;
+            return (
+              <div
+                key={agent.name}
+                className={`grid grid-cols-2 md:grid-cols-12 gap-4 px-6 py-5 border-b border-border last:border-b-0 items-center transition-all duration-500 hover:bg-secondary/50 ${
+                  isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+                }`}
+                style={{ transitionDelay: `${index * 80}ms` }}
+              >
+                <div className="md:col-span-1 flex items-center gap-2 font-display text-xl">
+                  {agent.rank === 1 ? (
+                    <Trophy className="w-4 h-4 text-[var(--medium)]" />
+                  ) : null}
+                  {agent.rank}
+                </div>
+                <div className="md:col-span-4 flex items-center gap-3 order-first md:order-none col-span-2">
+                  <span className="w-9 h-9 rounded-md bg-accent text-primary flex items-center justify-center shrink-0">
+                    <Icon className="w-4 h-4" />
                   </span>
-                )
-              )}
-            </div>
-          ))}
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{agent.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{agent.type}</div>
+                  </div>
+                </div>
+                <div className="md:col-span-1 md:text-right font-mono text-sm">
+                  <span className="md:hidden text-xs text-muted-foreground mr-2">Audits</span>
+                  {agent.audits.toLocaleString()}
+                </div>
+                <div className="md:col-span-2 md:text-right font-mono text-sm">
+                  <span className="md:hidden text-xs text-muted-foreground mr-2">Findings</span>
+                  {agent.findings.toLocaleString()}
+                </div>
+                <div className="md:col-span-1 md:text-right font-mono text-sm">
+                  <span className="md:hidden text-xs text-muted-foreground mr-2">Accuracy</span>
+                  {agent.accuracy}%
+                </div>
+                <div className="md:col-span-2 md:text-right font-display text-base text-[var(--usdc)]">
+                  <span className="md:hidden text-xs text-muted-foreground mr-2 font-sans">Earned</span>
+                  ${agent.earned}
+                </div>
+                <div className="md:col-span-1 md:text-right font-mono text-sm text-primary">
+                  <span className="md:hidden text-xs text-muted-foreground mr-2">Rep</span>
+                  {agent.reputation}
+                </div>
+              </div>
+            );
+          })}
         </div>
+
+        <p className="mt-6 text-sm text-muted-foreground max-w-2xl">
+          Reputation blends trust score, accuracy, earnings, and historical
+          performance. Higher-reputation agents appear first in search and selection.
+        </p>
       </div>
     </section>
   );

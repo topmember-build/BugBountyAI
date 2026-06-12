@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
-  { name: "Features", href: "#features" },
+  { name: "Agents", href: "#agents" },
   { name: "How it works", href: "#how-it-works" },
-  { name: "Developers", href: "#developers" },
-  { name: "Pricing", href: "#pricing" },
+  { name: "Rewards", href: "#rewards" },
+  { name: "Leaderboard", href: "#leaderboard" },
 ];
 
 export function Navigation() {
@@ -44,9 +44,15 @@ export function Navigation() {
           }`}
         >
           {/* Logo */}
-          <a href="#" className="flex items-center gap-2 group">
-            <span className={`font-display tracking-tight transition-all duration-500 ${isScrolled ? "text-xl" : "text-2xl"}`}>Optimus</span>
-            <span className={`text-muted-foreground font-mono transition-all duration-500 ${isScrolled ? "text-[10px] mt-0.5" : "text-xs mt-1"}`}>TM</span>
+          <a href="#" className="flex items-center gap-2.5 group">
+            <span
+              className={`flex items-center justify-center rounded-md bg-primary text-primary-foreground font-display transition-all duration-500 ${
+                isScrolled ? "w-7 h-7 text-base" : "w-8 h-8 text-lg"
+              }`}
+            >
+              B
+            </span>
+            <span className={`font-display tracking-tight transition-all duration-500 ${isScrolled ? "text-xl" : "text-2xl"}`}>BugBountyAI</span>
           </a>
 
           {/* Desktop Navigation */}
@@ -70,9 +76,9 @@ export function Navigation() {
             </a>
             <Button
               size="sm"
-              className={`bg-foreground hover:bg-foreground/90 text-background rounded-full transition-all duration-500 ${isScrolled ? "px-4 h-8 text-xs" : "px-6"}`}
+              className={`bg-primary hover:bg-primary/90 text-primary-foreground rounded-full transition-all duration-500 ${isScrolled ? "px-4 h-8 text-xs" : "px-6"}`}
             >
-              Start creating
+              Launch Audit
             </Button>
           </div>
 
@@ -137,10 +143,10 @@ export function Navigation() {
               Sign in
             </Button>
             <Button 
-              className="flex-1 bg-foreground text-background rounded-full h-14 text-base"
+              className="flex-1 bg-primary text-primary-foreground rounded-full h-14 text-base"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              Start creating
+              Launch Audit
             </Button>
           </div>
         </div>
