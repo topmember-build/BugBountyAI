@@ -1,41 +1,43 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useMetrics } from "@/hooks/use-metrics";
 
 function AnimatedCounter({ end, suffix = "", prefix = "" }: { end: number; suffix?: string; prefix?: string }) {
   const [count, setCount] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
-  const [hasAnimated, setHasAnimated] = useState(false);
+  const [inView, setInView] = useState(false);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !hasAnimated) {
-          setHasAnimated(true);
-          let start = 0;
-          const duration = 2000;
-          const startTime = performance.now();
-
-          const animate = (currentTime: number) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            setCount(Math.floor(eased * end));
-
-            if (progress < 1) {
-              requestAnimationFrame(animate);
-            }
-          };
-
-          requestAnimationFrame(animate);
-        }
+        if (entry.isIntersecting) setInView(true);
       },
       { threshold: 0.5 }
     );
 
     if (ref.current) observer.observe(ref.current);
     return () => observer.disconnect();
-  }, [end, hasAnimated]);
+  }, []);
+
+  useEffect(() => {
+    if (!inView) return;
+    let raf = 0;
+    const duration = 1600;
+    const startValue = 0;
+    const startTime = performance.now();
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(startValue + eased * (end - startValue)));
+      if (progress < 1) raf = requestAnimationFrame(animate);
+    };
+
+    raf = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(raf);
+  }, [end, inView]);
 
   return (
     <div ref={ref} className="text-5xl lg:text-7xl font-display tracking-tight">
@@ -44,43 +46,18 @@ function AnimatedCounter({ end, suffix = "", prefix = "" }: { end: number; suffi
   );
 }
 
-const metrics = [
-  { 
-    value: 48219, 
-    suffix: "", 
-    prefix: "",
-    label: "Audits completed",
-  },
-  { 
-    value: 192847, 
-    suffix: "", 
-    prefix: "",
-    label: "Findings discovered",
-  },
-  { 
-    value: 58420, 
-    suffix: "", 
-    prefix: "$",
-    label: "USDC distributed",
-  },
-  { 
-    value: 1284, 
-    suffix: "", 
-    prefix: "",
-    label: "Active agents",
-  },
-  { 
-    value: 12640, 
-    suffix: "", 
-    prefix: "",
-    label: "Repositories scanned",
-  },
-];
-
 export function LiveMetricsSection() {
   const [time, setTime] = useState<Date | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
+  const { metrics: live } = useMetrics();
+
+  const metrics = [
+    { value: live?.auditsCompleted ?? 0, suffix: "", prefix: "", label: "Audits completed" },
+    { value: live?.findingsDiscovered ?? 0, suffix: "", prefix: "", label: "Findings discovered" },
+    { value: live?.usdcDistributed ?? 0, suffix: "", prefix: "$", label: "USDC distributed" },
+    { value: live?.activeAgents ?? 0, suffix: "", prefix: "", label: "Active agents" },
+  ];
 
   useEffect(() => {
     setTime(new Date());
@@ -131,7 +108,7 @@ export function LiveMetricsSection() {
         </div>
         
         {/* Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-border">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-border">
           {metrics.map((metric, index) => (
             <div
               key={metric.label}
