@@ -122,6 +122,80 @@ export async function settleReward(req: SettlementRequest): Promise<SettlementRe
   }
 }
 
+/** The treasury wallet's on-chain address (fee destination + payout source). */
+let cachedTreasuryAddress: string | null = null
+
+export async function getTreasuryAddress(): Promise<string | null> {
+  if (cachedTreasuryAddress) return cachedTreasuryAddress
+  if (!isCircleConfigured()) return null
+  try {
+    const client = getCircleClient()
+    const res = await client.getWallet({ id: CIRCLE_WALLET_ID! })
+    const address = res.data?.wallet?.address ?? null
+    if (address) cachedTreasuryAddress = address
+    return address
+  } catch {
+    return null
+  }
+}
+
+export interface FundingResult {
+  status: "settling" | "settled" | "failed"
+  externalId: string | null
+  simulated: boolean
+  error?: string
+}
+
+/**
+ * Seed a freshly created user wallet with a small amount of test USDC from the
+ * treasury so they can immediately pay for an audit on Arc testnet.
+ */
+export async function fundUserWallet(params: {
+  destinationAddress: string
+  amount: number
+  idempotencyKey: string
+}): Promise<FundingResult> {
+  if (!isCircleConfigured()) {
+    return { status: "settled", externalId: `sim_fund_${params.idempotencyKey}`, simulated: true }
+  }
+  try {
+    const client = getCircleClient()
+    const tokenId = await resolveUsdcTokenId()
+    if (!tokenId) {
+      return { status: "failed", externalId: null, simulated: false, error: "No USDC in treasury wallet to fund users." }
+    }
+    const res = await client.createTransaction({
+      walletId: CIRCLE_WALLET_ID!,
+      tokenId,
+      destinationAddress: params.destinationAddress,
+      amount: [params.amount.toFixed(6)],
+      fee: { type: "level", config: { feeLevel: "MEDIUM" } },
+      idempotencyKey: params.idempotencyKey,
+    })
+    return {
+      status: res.data?.state === "COMPLETE" ? "settled" : "settling",
+      externalId: res.data?.id ?? null,
+      simulated: false,
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown Circle error"
+    return { status: "failed", externalId: null, simulated: false, error: message.slice(0, 300) }
+  }
+}
+
+/**
+ * Refund a user's audit fee from the treasury back to their wallet, used when
+ * an audit fails after the fee was collected.
+ */
+export async function refundFee(params: {
+  destinationAddress: string
+  amount: number
+  idempotencyKey: string
+}): Promise<FundingResult> {
+  // Refund mechanics are identical to funding: treasury -> user wallet.
+  return fundUserWallet(params)
+}
+
 export interface TransactionStatus {
   status: "settled" | "settling" | "failed"
   txHash: string | null

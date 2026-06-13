@@ -11,6 +11,7 @@
   "dependencies": {
     "@ai-sdk/react": "^3.0.205",
     "@circle-fin/developer-controlled-wallets": "^10.6.0",
+    "@circle-fin/user-controlled-wallets": "^10.6.0",
     "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "1.2.2",
