@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import useSWR from "swr";
 import { Fingerprint, Wallet, Network, CircleDollarSign } from "lucide-react";
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
+
+interface Agent {
+  id: string
+  wallet_address: string | null
+  total_earned: number
+  findings_count: number
+}
 
 const stackCapabilities = [
   {
@@ -29,6 +39,11 @@ const stackCapabilities = [
 export function CircleAgentStackSection() {
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
+  const { data } = useSWR<{ agents: Agent[] }>("/api/agents?limit=1", fetcher, {
+    refreshInterval: 15000,
+  })
+
+  const topAgent = data?.agents?.[0]
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -68,12 +83,20 @@ export function CircleAgentStackSection() {
             <div className="rounded-xl border border-border bg-card p-6">
               <p className="font-mono text-xs text-muted-foreground mb-3">AGENT WALLET</p>
               <div className="flex items-center justify-between">
-                <span className="font-mono text-sm text-foreground">0x4f…9aE2</span>
-                <span className="font-display text-2xl text-[var(--usdc)]">12,480 USDC</span>
+                <span className="font-mono text-sm text-foreground">
+                  {topAgent?.wallet_address
+                    ? `${topAgent.wallet_address.slice(0, 6)}…${topAgent.wallet_address.slice(-4)}`
+                    : "0x4f…9aE2"}
+                </span>
+                <span className="font-display text-2xl text-[var(--usdc)]">
+                  {topAgent ? `${Number(topAgent.total_earned).toLocaleString()} USDC` : "12,480 USDC"}
+                </span>
               </div>
               <div className="mt-4 h-px bg-border" />
               <p className="mt-4 text-sm text-muted-foreground">
-                Balance accrued autonomously across 318 validated findings.
+                {topAgent
+                  ? `Balance accrued autonomously across ${topAgent.findings_count.toLocaleString()} validated findings.`
+                  : "Balance accrued autonomously across 318 validated findings."}
               </p>
             </div>
           </div>

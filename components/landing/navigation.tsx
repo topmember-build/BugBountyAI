@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { LogoMark } from "./logo";
@@ -16,6 +17,35 @@ const navLinks = [
 export function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const supabase = createClient();
+    let mounted = true;
+
+    const refreshUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!mounted) return;
+      setIsAuthenticated(!!data.user);
+      setIsAuthLoading(false);
+    };
+
+    refreshUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_, session) => {
+      if (!mounted) return;
+      setIsAuthenticated(!!session?.user);
+      setIsAuthLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -46,14 +76,14 @@ export function Navigation() {
           }`}
         >
           {/* Logo */}
-          <a href="#" className="flex items-center gap-2.5 group">
+          <Link href="/" className="flex items-center gap-2.5 group">
             <LogoMark
               className={`transition-all duration-500 ${isScrolled ? "w-8 h-8" : "w-10 h-10"}`}
             />
             <span className={`font-display tracking-tight transition-all duration-500 ${isScrolled ? "text-xl" : "text-2xl"}`}>
               BugBounty<span className="text-primary">AI</span>
             </span>
-          </a>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-12">
@@ -71,9 +101,14 @@ export function Navigation() {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-4">
-            <Link href="/auth/login" className={`text-foreground/70 hover:text-foreground transition-all duration-500 ${isScrolled ? "text-xs" : "text-sm"}`}>
-              Sign in
-            </Link>
+            {!isAuthLoading && (
+              <Link
+                href={isAuthenticated ? "/dashboard" : "/auth/login"}
+                className={`text-foreground/70 hover:text-foreground transition-all duration-500 ${isScrolled ? "text-xs" : "text-sm"}`}
+              >
+                {isAuthenticated ? "Dashboard" : "Sign in"}
+              </Link>
+            )}
             <Button
               asChild
               size="sm"
@@ -142,7 +177,9 @@ export function Navigation() {
               className="flex-1 rounded-full h-14 text-base"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              <Link href="/auth/login">Sign in</Link>
+              <Link href={isAuthenticated ? "/dashboard" : "/auth/login"}>
+                {isAuthenticated ? "Dashboard" : "Sign in"}
+              </Link>
             </Button>
             <Button 
               asChild

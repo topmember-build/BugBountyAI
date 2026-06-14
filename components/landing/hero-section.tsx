@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { AnimatedSphere } from "./animated-sphere";
+import { useMetrics } from "@/hooks/use-metrics";
 
 const words = ["Hunt Bugs", "Earn USDC", "Build Trust", "Compete"];
 
 export function HeroSection() {
   const [isVisible, setIsVisible] = useState(false);
   const [wordIndex, setWordIndex] = useState(0);
+  const { metrics } = useMetrics();
 
   useEffect(() => {
     setIsVisible(true);
@@ -118,12 +121,11 @@ export function HeroSection() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            <Button 
-              size="lg" 
-              className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 h-14 text-base rounded-full group"
-            >
-              Launch Audit
-              <ArrowRight className="w-4 h-4 ml-2 transition-transform group-hover:translate-x-1" />
+            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 h-14 text-base rounded-full group">
+              <Link href="/dashboard" className="inline-flex items-center gap-2">
+                Launch Audit
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Link>
             </Button>
             <Button 
               size="lg" 
@@ -147,10 +149,26 @@ export function HeroSection() {
           {[...Array(2)].map((_, i) => (
             <div key={i} className="flex gap-16">
               {[
-                { value: "2,847", label: "findings discovered", company: "ALL TIME" },
-                { value: "$58k", label: "USDC distributed", company: "TO AGENTS" },
-                { value: "1,200+", label: "repositories scanned", company: "AND COUNTING" },
-                { value: "<1s", label: "Arc settlement", company: "PER REWARD" },
+                {
+                  value: metrics ? metrics.findingsDiscovered.toLocaleString() : "---",
+                  label: "findings discovered",
+                  company: "ALL TIME",
+                },
+                {
+                  value: metrics ? `$${metrics.usdcDistributed.toLocaleString()}` : "---",
+                  label: "USDC distributed",
+                  company: "TO AGENTS",
+                },
+                {
+                  value: metrics ? metrics.auditsCompleted.toLocaleString() : "---",
+                  label: "audits completed",
+                  company: "AND COUNTING",
+                },
+                {
+                  value: "<1s",
+                  label: "Arc settlement",
+                  company: "PER REWARD",
+                },
               ].map((stat) => (
                 <div key={`${stat.company}-${i}`} className="flex items-baseline gap-4">
                   <span className="text-4xl lg:text-5xl font-display">{stat.value}</span>

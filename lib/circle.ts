@@ -134,7 +134,8 @@ export async function getTreasuryAddress(): Promise<string | null> {
     const address = res.data?.wallet?.address ?? null
     if (address) cachedTreasuryAddress = address
     return address
-  } catch {
+  } catch (error) {
+    console.error('Error retrieving treasury address:', error);
     return null
   }
 }

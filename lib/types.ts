@@ -26,6 +26,9 @@ export interface Audit {
   status: AuditStatus
   findings_count: number
   total_reward: number
+  archive_path?: string | null
+  archive_filename?: string | null
+  archive_uploaded_at?: string | null
   created_at: string
   completed_at: string | null
 }

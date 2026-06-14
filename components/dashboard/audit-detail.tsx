@@ -1,11 +1,13 @@
-"use client"
+﻿"use client"
 
-import { useEffect } from "react"
-import useSWR from "swr"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
+import useSWR from "swr"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ArrowLeft, FileCode, GitBranch } from "lucide-react"
+import { ArrowLeft, Copy, FileCode, GitBranch } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -51,21 +53,87 @@ const rewardStyles: Record<string, string> = {
 }
 
 export function AuditDetail({ auditId }: { auditId: string }) {
+  const router = useRouter()
   const { data, isLoading, mutate } = useSWR<{ audit: Audit; findings: Finding[] }>(
     `/api/audits/${auditId}`,
     fetcher,
   )
 
   const hasSettling = data?.findings?.some((f) => f.reward_status === "settling") ?? false
+  const allSettled = data?.findings?.every((f) => f.reward_status === "settled") ?? false
+  const [sawSettling, setSawSettling] = useState(false)
+  const [copyMessage, setCopyMessage] = useState<string | null>(null)
 
-  // While rewards are settling on-chain, reconcile with Circle and refresh.
+  const copyAuditContent = async () => {
+    if (!data?.audit) return
+
+    const auditText = [
+      `Audit: ${data.audit.repo_name ?? data.audit.repo_url}`,
+      `Branch: ${data.audit.branch}`,
+      `Findings: ${data.audit.findings_count}`,
+      `Total reward: $${Number(data.audit.total_reward).toFixed(2)} USDC`,
+      "",
+      ...data.findings.map((f, index) => {
+        const lines = f.file_path
+          ? `File: ${f.file_path}${f.line_start ? `:${f.line_start}` : ""}${f.line_end && f.line_end !== f.line_start ? `-${f.line_end}` : ""}`
+          : "File: N/A"
+
+        return [
+          `Finding ${index + 1}: ${f.title}`,
+          `Severity: ${f.severity}`,
+          `Confidence: ${(Number(f.confidence) * 100).toFixed(0)}%`,
+          `Reward status: ${f.reward_status}`,
+          `Category: ${f.category ?? "N/A"}`,
+          lines,
+          `Agent: ${f.agents?.name ?? "Unknown"}`,
+          `Description: ${f.description ?? "N/A"}`,
+          `Recommendation: ${f.recommendation ?? "N/A"}`,
+          "",
+        ].join("\n")
+      }).join("\n"),
+    ].join("\n")
+
+    try {
+      await navigator.clipboard.writeText(auditText)
+      setCopyMessage("Audit content copied. Paste it into your AI or LLM of choice.")
+    } catch (error) {
+      setCopyMessage("Unable to copy audit content to clipboard.")
+    }
+
+    window.setTimeout(() => setCopyMessage(null), 4000)
+  }
+
+  const downloadAuditJson = () => {
+    if (!data) return
+
+    const json = JSON.stringify({ audit: data.audit, findings: data.findings }, null, 2)
+    const blob = new Blob([json], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `audit-${data.audit.id}.json`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  useEffect(() => {
+    if (hasSettling) {
+      setSawSettling(true)
+    }
+  }, [hasSettling])
+
   useEffect(() => {
     if (!hasSettling) return
     let cancelled = false
 
     const reconcile = async () => {
       try {
-        const res = await fetch("/api/rewards/reconcile", { method: "POST" })
+        const res = await fetch("/api/rewards/reconcile", {
+          method: "POST",
+          credentials: "include",
+        })
         const json = await res.json()
         if (!cancelled && json.reconciled > 0) mutate()
       } catch {
@@ -81,6 +149,15 @@ export function AuditDetail({ auditId }: { auditId: string }) {
     }
   }, [hasSettling, mutate])
 
+  useEffect(() => {
+    if (!isLoading && data?.audit && allSettled && sawSettling) {
+      const timeout = setTimeout(() => {
+        router.push("/dashboard")
+      }, 1200)
+      return () => clearTimeout(timeout)
+    }
+  }, [allSettled, data?.audit, isLoading, router, sawSettling])
+
   if (isLoading) {
     return (
       <div className="flex flex-col gap-4">
@@ -94,7 +171,7 @@ export function AuditDetail({ auditId }: { auditId: string }) {
   if (!data?.audit) {
     return (
       <div className="text-center text-muted-foreground py-20">
-        Audit not found.{" "}
+        Audit not found. {" "}
         <Link href="/dashboard" className="text-primary underline">
           Back to dashboard
         </Link>
@@ -133,6 +210,19 @@ export function AuditDetail({ auditId }: { auditId: string }) {
             </div>
             <div className="text-xs text-muted-foreground">USDC rewarded</div>
           </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 mt-4">
+          <Button type="button" variant="outline" onClick={copyAuditContent}>
+            <Copy className="w-4 h-4 mr-2" />
+            Copy audit to clipboard
+          </Button>
+          <Button type="button" variant="outline" onClick={downloadAuditJson}>
+            <Copy className="w-4 h-4 mr-2" />
+            Export audit JSON
+          </Button>
+          {copyMessage ? (
+            <div className="text-sm text-muted-foreground">{copyMessage}</div>
+          ) : null}
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createCircleUser } from '@/lib/circle-user'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
@@ -10,7 +11,17 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (user) {
+          await createCircleUser(user.id)
+        }
+      } catch (circleError) {
+        console.error('Failed to provision Circle user after auth callback:', circleError)
+      }
+      return NextResponse.redirect(`${origin}/dashboard?walletSetup=1`)
     }
   }
 

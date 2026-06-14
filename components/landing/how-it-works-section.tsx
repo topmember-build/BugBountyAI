@@ -6,10 +6,10 @@ const steps = [
   {
     number: "01",
     title: "Upload your code",
-    description: "Connect a GitHub repository, drop a ZIP file, paste a smart contract, or upload source code directly.",
-    code: `$ bugbounty upload --repo github.com/acme/api
+    description: "Paste a GitHub repository, drop a ZIP file, paste a smart contract, or upload source code directly.",
+    code: `$ bugbounty upload --repo https://github.com/acme/payments-api
 
-  ↳ Cloning repository...
+  ↳ Resolving repository...
   ↳ 1,284 files indexed
   ↳ Languages: TypeScript, Solidity
   ✓ Ready for audit`,

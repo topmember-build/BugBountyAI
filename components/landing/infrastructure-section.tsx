@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, type ChangeEvent, type DragEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ShieldAlert, GitBranch, Package, FileCode2, Github, Upload, Check } from "lucide-react";
 
@@ -16,7 +17,112 @@ export function AuditSwarmSection() {
   const [selected, setSelected] = useState<string[]>(["security", "logic", "dependency"]);
   const [running, setRunning] = useState(true);
   const [progress, setProgress] = useState<Record<string, number>>({});
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [uploadPath, setUploadPath] = useState<string | null>(null);
+  const [uploadFilename, setUploadFilename] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const router = useRouter();
+
+  const uploadArchive = async (file: File) => {
+    setIsUploading(true);
+    setUploadStatus("Uploading archive...");
+    setFileError(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/uploads", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Upload failed.");
+
+      setUploadPath(data.path ?? null);
+      setUploadFilename(data.fileName ?? null);
+      setUploadStatus("Upload complete.");
+    } catch (error) {
+      setUploadPath(null);
+      setUploadFilename(null);
+      setUploadStatus(null);
+      setFileError(error instanceof Error ? error.message : "Upload failed.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFiles = (files: FileList) => {
+    const fileArray = Array.from(files).filter((file) => file.type === "application/zip" || file.name.endsWith(".zip") || file.name.endsWith(".tar") || file.name.endsWith(".gz") || file.name.endsWith(".7z"));
+    if (fileArray.length === 0) {
+      setFileError("Please add a ZIP or compressed source archive.");
+      setUploadedFiles([]);
+      setUploadPath(null);
+      setUploadFilename(null);
+      setUploadStatus(null);
+      return;
+    }
+    setFileError(null);
+    setUploadedFiles(fileArray);
+    uploadArchive(fileArray[0]);
+  };
+
+  const onDragEnter = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragActive(true);
+  };
+
+  const onDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragActive(false);
+  };
+
+  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragActive(true);
+  };
+
+  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragActive(false);
+    if (event.dataTransfer.files?.length) {
+      handleFiles(event.dataTransfer.files);
+    }
+  };
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files?.length) {
+      handleFiles(event.target.files);
+    }
+  };
+
+  const onLaunchAudit = () => {
+    const base = "/dashboard";
+    if (uploadPath && uploadFilename) {
+      const params = new URLSearchParams({
+        archivePath: uploadPath,
+        archiveFilename: uploadFilename,
+      });
+      router.push(`${base}?${params.toString()}`);
+      return;
+    }
+
+    router.push(base);
+  };
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -120,16 +226,48 @@ export function AuditSwarmSection() {
 
               {/* Upload */}
               <h3 className="font-display text-xl mb-4">Add your code</h3>
-              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center mb-4 hover:border-primary/40 transition-colors">
+              <div
+                className={`border-2 border-dashed rounded-lg p-8 text-center mb-4 transition-colors ${isDragActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+                onDragEnter={onDragEnter}
+                onDragLeave={onDragLeave}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
+              >
                 <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-3" />
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground mb-4">
                   Drag &amp; drop a ZIP or source files
                 </p>
+                <Button type="button" onClick={openFilePicker} variant="outline" className="rounded-full px-5 py-2">
+                  Select file
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".zip,.tar,.gz,.7z"
+                  className="hidden"
+                  onChange={onFileChange}
+                />
               </div>
+              {fileError ? (
+                <div className="text-sm text-destructive mb-4">{fileError}</div>
+              ) : uploadStatus ? (
+                <div className="text-sm text-foreground mb-4">{uploadStatus}</div>
+              ) : uploadedFiles.length > 0 ? (
+                <div className="mb-4 rounded-xl border border-border bg-background p-4 text-left text-sm">
+                  <div className="font-medium mb-2">Selected file{uploadedFiles.length > 1 ? "s" : ""}:</div>
+                  <ul className="space-y-1">
+                    {uploadedFiles.map((file) => (
+                      <li key={file.name} className="truncate">
+                        {file.name} • {(file.size / 1024).toFixed(1)} KB
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <div className="flex items-center gap-2 rounded-lg border border-border px-4 py-3 mb-6">
                 <Github className="w-4 h-4 text-muted-foreground shrink-0" />
                 <span className="text-sm font-mono text-muted-foreground truncate">
-                  github.com/acme/payments-api
+                  Paste your repository URL
                 </span>
                 <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-mono text-primary shrink-0">
                   <Check className="w-3 h-3" /> Connected
@@ -137,11 +275,11 @@ export function AuditSwarmSection() {
               </div>
 
               <Button
-                onClick={() => setRunning(true)}
-                disabled={selected.length === 0}
+                onClick={onLaunchAudit}
+                disabled={selected.length === 0 || isUploading}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 rounded-full"
               >
-                Launch Audit with {selected.length} agent{selected.length === 1 ? "" : "s"}
+                {isUploading ? "Uploading audit archive..." : `Launch Audit with ${selected.length} agent${selected.length === 1 ? "" : "s"}`}
               </Button>
             </div>
           </div>

@@ -62,10 +62,10 @@ export async function createUserSession(userId: string): Promise<UserSession> {
 }
 
 /** Read a user's status (e.g. whether they've completed PIN/wallet setup). */
-export async function getCircleUserStatus(userId: string): Promise<string | null> {
+export async function getCircleUserStatus(userToken: string): Promise<string | null> {
   const client = getUserClient()
   try {
-    const res = await client.getUserStatus({ userId })
+    const res = await client.getUserStatus({ userToken })
     return res.data?.status ?? null
   } catch {
     return null
@@ -116,7 +116,7 @@ export async function getUserUsdcBalance(
   walletId: string,
 ): Promise<{ amount: string; tokenId: string | null }> {
   const client = getUserClient()
-  const res = await client.getWalletTokenBalance({ userToken, id: walletId })
+  const res = await client.getWalletTokenBalance({ userToken, walletId })
   const balances = res.data?.tokenBalances ?? []
   const usdc = balances.find((b) => b.token?.symbol?.toUpperCase().includes("USDC"))
   return { amount: usdc?.amount ?? "0", tokenId: usdc?.token?.id ?? null }
@@ -140,18 +140,55 @@ export async function createFeeTransferChallenge(params: {
   idempotencyKey: string
 }): Promise<FeeChallenge> {
   const client = getUserClient()
-  const res = await client.createTransaction({
-    userToken: params.userToken,
-    walletId: params.walletId,
-    tokenId: params.tokenId,
-    destinationAddress: params.destinationAddress,
-    amounts: [params.amount.toFixed(6)],
-    fee: { type: "level", config: { feeLevel: "MEDIUM" } },
-    idempotencyKey: params.idempotencyKey,
-  })
-  return {
-    challengeId: res.data?.challengeId ?? "",
-    transactionId: (res.data as { id?: string } | undefined)?.id ?? null,
+  try {
+    const res = await client.createTransaction({
+      userToken: params.userToken,
+      walletId: params.walletId,
+      tokenId: params.tokenId,
+      destinationAddress: params.destinationAddress,
+      amounts: [params.amount.toFixed(6)],
+      fee: { type: "level", config: { feeLevel: "MEDIUM" } },
+      idempotencyKey: params.idempotencyKey,
+    })
+
+    return {
+      challengeId: res.data?.challengeId ?? "",
+      transactionId: null,
+    }
+  } catch (err) {
+    try {
+      console.error("Circle createTransaction error", {
+        userToken: params.userToken,
+        walletId: params.walletId,
+        tokenId: params.tokenId,
+        destinationAddress: params.destinationAddress,
+        amounts: [params.amount.toFixed(6)],
+        idempotencyKey: params.idempotencyKey,
+        error: err instanceof Error ? err.message : err,
+        response: (err as any)?.response ?? null,
+      })
+    } catch (logErr) {
+      console.error("Failed logging createTransaction error", logErr)
+    }
+    throw err
+  }
+}
+
+export async function getUserChallenge(
+  userToken: string,
+  challengeId: string,
+): Promise<{ status: string | null; correlationIds: string[] | null } | null> {
+  const client = getUserClient()
+  try {
+    const res = await client.getUserChallenge({ userToken, challengeId })
+    const challenge = res.data?.challenge
+    if (!challenge) return null
+    return {
+      status: challenge.status ?? null,
+      correlationIds: challenge.correlationIds ?? null,
+    }
+  } catch {
+    return null
   }
 }
 

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { analyzeRepository } from "@/lib/analyzer"
 import { calculateReward } from "@/lib/rewards"
 import { settleReward } from "@/lib/circle"
+import { createCircleUser, createUserSession, getUserTransaction } from "@/lib/circle-user"
 import type { AgentType } from "@/lib/types"
 
 export const maxDuration = 120
@@ -42,11 +43,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  let body: { repo_url?: string; branch?: string; agents?: AgentType[] }
-  try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+  const contentType = request.headers.get("content-type") || ""
+  let body: { repo_url?: string; branch?: string; agents?: AgentType[]; fee_transaction_id?: string; archive_path?: string; archive_filename?: string }
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await request.formData()
+    body = {
+      repo_url: formData.get("repo_url") as string | undefined,
+      branch: formData.get("branch") as string | undefined,
+      fee_transaction_id: formData.get("fee_transaction_id") as string | undefined,
+      archive_path: formData.get("archive_path") as string | undefined,
+      archive_filename: formData.get("archive_filename") as string | undefined,
+    }
+  } else {
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 })
+    }
   }
 
   const repoUrl = body.repo_url?.trim()
@@ -54,17 +68,91 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "repo_url is required" }, { status: 400 })
   }
 
+  const feeTransactionId = body.fee_transaction_id?.trim()
+  if (!feeTransactionId) {
+    return NextResponse.json({ error: "fee_transaction_id is required" }, { status: 400 })
+  }
+
+  const { data: feeRow, error: feeError } = await supabase
+    .from("audit_fees")
+    .select("status")
+    .eq("user_id", user.id)
+    .eq("transaction_id", feeTransactionId)
+    .in("status", ["authorized", "settled"])
+    .single()
+
+  if (feeError || !feeRow) {
+    return NextResponse.json(
+      { error: "A valid authorized audit fee transaction is required." },
+      { status: 400 },
+    )
+  }
+
+  try {
+    await createCircleUser(user.id)
+    const session = await createUserSession(user.id)
+    const tx = await getUserTransaction(session.userToken, feeTransactionId)
+
+    const settledStates = new Set(["COMPLETE", "CONFIRMED", "SETTLED", "settled"])
+    if (!tx || !settledStates.has(String(tx.state))) {
+      return NextResponse.json(
+        {
+          error: `Fee transaction must be settled before submitting an audit. Current state: ${tx?.state ?? "unknown"}`,
+        },
+        { status: 400 },
+      )
+    }
+
+    if (feeRow.status !== "settled") {
+      await supabase
+        .from("audit_fees")
+        .update({ status: "settled" })
+        .eq("user_id", user.id)
+        .eq("transaction_id", feeTransactionId)
+    }
+  } catch (verifyError) {
+    return NextResponse.json(
+      { error: verifyError instanceof Error ? verifyError.message : "Unable to verify fee transaction" },
+      { status: 502 },
+    )
+  }
+
+  const { error: markUsedError } = await supabase
+    .from("audit_fees")
+    .update({ status: "used" })
+    .eq("user_id", user.id)
+    .eq("transaction_id", feeTransactionId)
+    .eq("status", feeRow.status)
+
+  if (markUsedError) {
+    return NextResponse.json(
+      { error: "Unable to consume the audit fee transaction." },
+      { status: 500 },
+    )
+  }
+
   const branch = body.branch?.trim() || "main"
 
   // 1. Create the audit row (status: scanning)
+  const auditPayload: Record<string, unknown> = {
+    user_id: user.id,
+    repo_url: repoUrl,
+    branch,
+    status: "scanning",
+  }
+
+  if (body.archive_path) {
+    auditPayload.archive_path = body.archive_path
+    auditPayload.archive_uploaded_at = new Date().toISOString()
+  }
+
+  if (body.archive_filename) {
+    auditPayload.archive_filename = body.archive_filename
+  }
+
   const { data: audit, error: auditError } = await supabase
     .from("audits")
-    .insert({
-      user_id: user.id,
-      repo_url: repoUrl,
-      branch,
-      status: "scanning",
-    })
+    .insert(auditPayload)
     .select()
     .single()
 
