@@ -47,6 +47,13 @@ export default function SignUpPage() {
         // ignore host detection errors and keep redirectUrl default
       }
 
+      if (process.env.NODE_ENV === "development") {
+        try {
+          // eslint-disable-next-line no-console
+          console.info("[signup] computed emailRedirectTo:", redirectUrl)
+        } catch {}
+      }
+
       const { error } = await supabase.auth.signUp({
         email,
         password,
