@@ -40,6 +40,9 @@ export function LeaderboardSection() {
   })
 
   const agents = data?.agents ?? []
+  const displayAgents: Array<Agent | undefined> = agents.length
+    ? agents
+    : new Array<Agent | undefined>(5).fill(undefined)
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -90,8 +93,7 @@ export function LeaderboardSection() {
               ))}
             </div>
           ) : (
-            (agents.length ? agents : Array.from({ length: 5 })).map((agent, index) => {
-              const isPlaceholder = !agent || !agent.id
+            displayAgents.map((agent, index) => {
               const Icon = agent ? iconMap[agent.agent_type] ?? ShieldAlert : ShieldAlert
               return (
                 <div

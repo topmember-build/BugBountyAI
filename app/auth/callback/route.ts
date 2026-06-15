@@ -21,7 +21,10 @@ export async function GET(request: NextRequest) {
       } catch (circleError) {
         console.error('Failed to provision Circle user after auth callback:', circleError)
       }
-      return NextResponse.redirect(`${origin}/dashboard?walletSetup=1`)
+
+      const redirectUrl = new URL(next, origin)
+      redirectUrl.searchParams.set('walletSetup', '1')
+      return NextResponse.redirect(redirectUrl)
     }
   }
 
