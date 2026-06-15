@@ -31,10 +31,21 @@ export default function SignUpPage() {
     }
 
     try {
-      const redirectUrl =
-        process.env.NEXT_PUBLIC_SUPABASE_REDIRECT_URL ??
-        process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ??
-        `${window.location.origin}/auth/callback`
+      // Prefer an explicit production redirect URL. Only fall back to the
+      // development redirect when running on localhost to avoid sending users
+      // to external dev hosts (like v0.app) from deployed sites.
+      let redirectUrl = process.env.NEXT_PUBLIC_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`
+
+      const devRedirect = process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL
+      try {
+        const host = window.location.hostname
+        const isLocalhost = host === "localhost" || host === "127.0.0.1" || host === "::1"
+        if (!process.env.NEXT_PUBLIC_SUPABASE_REDIRECT_URL && devRedirect && isLocalhost) {
+          redirectUrl = devRedirect
+        }
+      } catch {
+        // ignore host detection errors and keep redirectUrl default
+      }
 
       const { error } = await supabase.auth.signUp({
         email,
