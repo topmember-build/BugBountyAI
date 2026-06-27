@@ -10,8 +10,10 @@ import {
   getUserUsdcBalance,
 } from "@/lib/circle-user"
 import { getTreasuryAddress } from "@/lib/circle"
+import { computeEscrowBreakdown } from "@/lib/fees"
 
-const FEE_AMOUNT = Number(process.env.AUDIT_FEE_USDC ?? "1")
+const BASE_FEE_AMOUNT = Number(process.env.AUDIT_FEE_USDC ?? "1")
+const FEE_AMOUNT = BASE_FEE_AMOUNT
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -92,12 +94,16 @@ export async function POST(request: Request) {
 
     // Persist fee attempt server-side for reconciliation and audit locking
     try {
+      const { escrow, net } = computeEscrowBreakdown(BASE_FEE_AMOUNT)
       await admin.from("audit_fees").insert({
         user_id: user.id,
         transaction_id: challenge.transactionId ?? null,
         challenge_id: challenge.challengeId ?? null,
         idempotency_key: idempotencyKey,
-        amount: FEE_AMOUNT,
+        amount: BASE_FEE_AMOUNT,
+        escrow_fee: escrow,
+        net_amount: net,
+        source_address: wallet.address,
         status: "pending",
       })
     } catch (dbErr) {

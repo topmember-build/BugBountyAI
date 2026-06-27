@@ -40,5 +40,17 @@ export async function GET(
     return NextResponse.json({ error: findingsError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ audit, findings: findings ?? [] })
+  const { data: feeRow } = await supabase
+    .from("audit_fees")
+    .select("status")
+    .eq("user_id", audit.user_id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  return NextResponse.json({
+    audit,
+    findings: findings ?? [],
+    feeStatus: feeRow?.status ?? null,
+  })
 }

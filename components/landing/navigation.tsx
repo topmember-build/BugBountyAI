@@ -12,6 +12,7 @@ const navLinks = [
   { name: "How it works", href: "#how-it-works" },
   { name: "Rewards", href: "#rewards" },
   { name: "Leaderboard", href: "#leaderboard" },
+  { name: "Marketplace", href: "/agents" },
 ];
 
 export function Navigation() {
@@ -87,16 +88,24 @@ export function Navigation() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-12">
-            {navLinks.map((link) => (
+            {navLinks.map((link) => {
+            const commonClass =
+              "text-sm text-foreground/70 hover:text-foreground transition-colors duration-300 relative group"
+            return link.href.startsWith("/") ? (
+              <Link key={link.name} href={link.href} className={commonClass}>
+                {link.name}
+              </Link>
+            ) : (
               <a
                 key={link.name}
                 href={link.href}
-                className="text-sm text-foreground/70 hover:text-foreground transition-colors duration-300 relative group"
+                className={commonClass}
               >
                 {link.name}
                 <span className="absolute -bottom-1 left-0 w-0 h-px bg-foreground transition-all duration-300 group-hover:w-full" />
               </a>
-            ))}
+            )
+          })}
           </div>
 
           {/* Desktop CTA */}

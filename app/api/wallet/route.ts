@@ -9,8 +9,10 @@ import {
   getUserWallet,
   getUserUsdcBalance,
 } from "@/lib/circle-user"
+import { computeEscrowBreakdown } from "@/lib/fees"
 
-const FEE_AMOUNT = Number(process.env.AUDIT_FEE_USDC ?? "1")
+const BASE_FEE_AMOUNT = Number(process.env.AUDIT_FEE_USDC ?? "1")
+const FEE_AMOUNT = BASE_FEE_AMOUNT
 const APP_ID = process.env.CIRCLE_APP_ID ?? null
 
 export async function GET() {
@@ -95,6 +97,20 @@ export async function GET() {
 
     let feeTransactionId = feeAuthorizedRows?.[0]?.transaction_id ?? null
     const pendingChallengeId = feePendingRows?.[0]?.challenge_id ?? null
+
+    if (feeTransactionId) {
+      const { data: consumedFee } = await supabase
+        .from("audit_fees")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("transaction_id", feeTransactionId)
+        .eq("status", "used")
+        .maybeSingle()
+
+      if (consumedFee) {
+        feeTransactionId = null
+      }
+    }
 
     if (!feeTransactionId && pendingChallengeId) {
       try {

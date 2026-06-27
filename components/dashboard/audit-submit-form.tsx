@@ -1,9 +1,10 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSWRConfig } from "swr"
+import useSWR from "swr"
+import type { Agent } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,22 +17,40 @@ const selectableAgents = [
   { id: "smart_contract", name: "Smart Contract Agent", icon: FileCode2 },
 ]
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
+
 export function AuditSubmitForm({
   feeTransactionId,
   archivePath,
   archiveFilename,
+  initialSelectedAgentIds = [],
 }: {
   feeTransactionId: string | null
   archivePath?: string | null
   archiveFilename?: string | null
+  initialSelectedAgentIds?: string[]
 }) {
   const [repoUrl, setRepoUrl] = useState("")
   const [branch, setBranch] = useState("main")
   const [selectedAgents, setSelectedAgents] = useState<string[]>(["security", "logic", "dependency"])
+  const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>(initialSelectedAgentIds)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const router = useRouter()
   const { mutate } = useSWRConfig()
+
+  useEffect(() => {
+    if (initialSelectedAgentIds.length > 0) {
+      setSelectedAgentIds(initialSelectedAgentIds)
+    }
+  }, [initialSelectedAgentIds])
+  const { data: registeredData, isLoading: registeredLoading } = useSWR<{ agents: Agent[] }>(
+    "/api/agents?mine=1",
+    fetcher,
+    { revalidateOnFocus: false },
+  )
+  const registeredAgents = registeredData?.agents ?? []
 
   const toggleAgent = (id: string) => {
     setSelectedAgents((prev) =>
@@ -43,6 +62,7 @@ export function AuditSubmitForm({
     e.preventDefault()
     setIsSubmitting(true)
     setError(null)
+    setSuccessMessage(null)
 
     if (!feeTransactionId) {
       setError("Authorize the audit fee with your Circle wallet before submitting.")
@@ -50,8 +70,8 @@ export function AuditSubmitForm({
       return
     }
 
-    if (selectedAgents.length === 0) {
-      setError("Please select at least one agent.")
+    if (selectedAgentIds.length === 0 && selectedAgents.length === 0) {
+      setError("Please select at least one agent or agent specialty.")
       setIsSubmitting(false)
       return
     }
@@ -65,18 +85,30 @@ export function AuditSubmitForm({
           repo_url: repoUrl.trim(),
           branch: branch.trim() || "main",
           agents: selectedAgents,
+          agent_ids: selectedAgentIds,
           fee_transaction_id: feeTransactionId,
           archive_path: archivePath,
           archive_filename: archiveFilename,
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? "Audit failed")
+      if (!res.ok) {
+        const message = data.error ?? "Audit failed"
+        if (message.toLowerCase().includes("refund") || message.toLowerCase().includes("refunded")) {
+          setSuccessMessage(message)
+        } else {
+          throw new Error(message)
+        }
+        return
+      }
 
-      // Refresh audits list, metrics, and leaderboard
-      mutate("/api/audits")
-      mutate("/api/metrics")
-      mutate("/api/agents")
+      // Refresh audits list, metrics, wallet state, and leaderboard
+      await Promise.all([
+        mutate("/api/audits"),
+        mutate("/api/metrics"),
+        mutate("/api/agents"),
+        mutate("/api/wallet"),
+      ])
 
       setRepoUrl("")
       if (data.audit?.id) router.push(`/dashboard/audits/${data.audit.id}`)
@@ -117,16 +149,72 @@ export function AuditSubmitForm({
           </div>
         </div>
 
+        {/* Use registered agents */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-sm">Use trained agents</h3>
+            {selectedAgentIds.length > 0 ? (
+              <span className="inline-flex items-center gap-2 text-xs font-mono px-2 py-1 rounded-full bg-primary text-primary-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                Using registered agents
+              </span>
+            ) : null}
+          </div>
+          {registeredLoading ? (
+            <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+              Loading your agents...
+            </div>
+          ) : registeredAgents.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+              No trained agents found. Register one above to use custom prompts in audits.
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-3">
+              {registeredAgents.map((agent) => {
+                const isSelected = selectedAgentIds.includes(agent.id)
+                return (
+                  <button
+                    key={agent.id}
+                    type="button"
+                    onClick={() =>
+                      setSelectedAgentIds((prev) =>
+                        prev.includes(agent.id) ? prev.filter((id) => id !== agent.id) : [...prev, agent.id],
+                      )
+                    }
+                    className={`flex flex-col items-start gap-2 p-3 rounded-lg border text-left transition-all duration-300 ${
+                      isSelected
+                        ? "border-primary bg-accent"
+                        : "border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 w-full justify-between">
+                      <span className="text-sm font-medium">{agent.name}</span>
+                      <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                        {agent.agent_type}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{agent.description ?? "No description."}</p>
+                    {isSelected && <span className="text-xs text-primary">Selected</span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Selecting trained agents will use their custom guidance; otherwise you can choose specialties below.
+          </p>
+        </div>
+
         {/* Choose Agents */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-sm">Choose agents</h3>
-            {selectedAgents.length > 0 && (
+            <h3 className="font-semibold text-sm">Choose agent specialties</h3>
+            {selectedAgents.length > 0 && selectedAgentIds.length === 0 ? (
               <span className="inline-flex items-center gap-2 text-xs font-mono px-2 py-1 rounded-full bg-accent text-accent-foreground">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                 Audit Swarm Ready
               </span>
-            )}
+            ) : null}
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
             {selectableAgents.map((agent) => {
@@ -172,6 +260,7 @@ export function AuditSubmitForm({
         </div>
 
         {error ? <div className="text-sm text-destructive">{error}</div> : null}
+        {successMessage ? <div className="text-sm text-emerald-600">{successMessage}</div> : null}
       </div>
     </form>
   )

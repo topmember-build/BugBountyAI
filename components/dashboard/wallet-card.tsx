@@ -49,6 +49,7 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
   const canPayFee = Boolean(data?.wallet && data?.balance?.tokenId)
   const feeAmount = data?.feeAmount ?? 0
   const feePending = Boolean(data?.pendingChallengeId && !data?.feeTransactionId)
+  const feeConsumed = Boolean(!data?.feeTransactionId && !feePending && data?.wallet)
 
   const runChallenge = async (payload: {
     appId: string
@@ -346,7 +347,7 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
             ) : (
               <Button
                 onClick={handleFeePayment}
-                disabled={actionState !== "idle" || !canPayFee || Boolean(feeTransactionId)}
+                disabled={actionState !== "idle" || !canPayFee}
               >
                 {actionState === "fee" ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /> Authorizing fee...</>
@@ -354,6 +355,8 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
                   "Fee authorized"
                 ) : feePending ? (
                   "Resume fee authorization"
+                ) : feeConsumed ? (
+                  "Authorize a new audit fee"
                 ) : (
                   "Authorize audit fee"
                 )}
@@ -366,6 +369,10 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
             ) : feePending ? (
               <Badge variant="secondary" className="h-9 px-3 rounded-full">
                 Pending fee challenge
+              </Badge>
+            ) : feeConsumed ? (
+              <Badge variant="outline" className="h-9 px-3 rounded-full border-amber-500 text-amber-600">
+                New fee required
               </Badge>
             ) : null}
           </div>

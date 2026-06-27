@@ -86,7 +86,7 @@ export function CircleAgentStackSection() {
                 <span className="font-mono text-sm text-foreground">
                   {topAgent?.wallet_address
                     ? `${topAgent.wallet_address.slice(0, 6)}…${topAgent.wallet_address.slice(-4)}`
-                    : "0x4f…9aE2"}
+                    : "0x95D1…F995"}
                 </span>
                 <span className="font-display text-2xl text-[var(--usdc)]">
                   {topAgent ? `${Number(topAgent.total_earned).toLocaleString()} USDC` : "12,480 USDC"}

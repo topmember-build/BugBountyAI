@@ -28,6 +28,11 @@ export async function updateSession(request: NextRequest) {
           )
         },
       },
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
     },
   )
 
@@ -37,9 +42,14 @@ export async function updateSession(request: NextRequest) {
 
   // IMPORTANT: If you remove getUser() and you use server-side rendering
   // with the Supabase client, your users may be randomly logged out.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+
+  try {
+    const response = await supabase.auth.getUser()
+    user = response.data?.user ?? null
+  } catch (error) {
+    console.warn("Supabase auth lookup skipped due to transient session error:", error instanceof Error ? error.message : error)
+  }
 
   if (
     // if the user is not logged in and a protected app path is accessed, redirect to login

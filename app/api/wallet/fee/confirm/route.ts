@@ -10,8 +10,10 @@ import {
   createUserSession,
 } from "@/lib/circle-user"
 import { getTreasuryAddress } from "@/lib/circle"
+import { computeEscrowBreakdown } from "@/lib/fees"
 
-const FEE_AMOUNT = Number(process.env.AUDIT_FEE_USDC ?? "1")
+const BASE_FEE_AMOUNT = Number(process.env.AUDIT_FEE_USDC ?? "1")
+const FEE_AMOUNT = BASE_FEE_AMOUNT
 
 export async function POST(request: Request) {
   const supabase = await createClient()

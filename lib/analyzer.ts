@@ -53,15 +53,50 @@ export interface AnalysisResult {
  * Run the AI audit swarm against a repository target.
  * Produces a realistic set of structured findings across agent specialties.
  */
+type RegisteredAgentDescriptor = {
+  agent_type: AgentType
+  name: string
+  system_prompt?: string | null
+  focus_areas?: string | null
+}
+
 export async function analyzeRepository(input: {
   repoUrl: string
   branch?: string
-  selectedAgents?: AgentType[]
+  selectedAgents?: Array<AgentType | RegisteredAgentDescriptor>
 }): Promise<AnalysisResult> {
-  const agentScope =
-    input.selectedAgents && input.selectedAgents.length > 0
-      ? `Only report findings for these agent specialties: ${input.selectedAgents.join(", ")}.`
-      : "Use all four agent specialties as appropriate."
+  const registeredAgents = Array.isArray(input.selectedAgents)
+    ? input.selectedAgents.filter(
+        (item): item is RegisteredAgentDescriptor =>
+          typeof item !== "string" && typeof item.agent_type === "string",
+      )
+    : []
+
+  const specialtyAgents = Array.isArray(input.selectedAgents)
+    ? input.selectedAgents.filter(
+        (item): item is AgentType => typeof item === "string",
+      )
+    : []
+
+  const registeredAgentInstructions = registeredAgents.length
+    ? [
+        "Apply the following registered agent guidance:",
+        ...registeredAgents.flatMap((agent) => [
+          `Agent: ${agent.name} (${agent.agent_type})`,
+          agent.focus_areas ? `Focus areas: ${agent.focus_areas}` : "Focus areas: general bug bounty hunting.",
+          `Agent instructions: ${agent.system_prompt?.trim() || "Follow the standard agent hierarchy and focus on exploitable, high-impact bugs."}`,
+          "",
+        ]),
+      ].join("\n")
+    : ""
+
+  const agentScope = registeredAgents.length
+    ? registeredAgentInstructions
+    : specialtyAgents.length > 0
+    ? `Only report findings for these agent specialties: ${specialtyAgents.join(", ")}. `.concat(
+        "Ensure each finding is assigned to the appropriate agent specialty.",
+      )
+    : "Use all four agent specialties as appropriate."
 
   const { experimental_output } = await generateText({
     model: ANALYSIS_MODEL,
@@ -75,7 +110,7 @@ export async function analyzeRepository(input: {
       "Given a repository target, produce a realistic, technically credible set of vulnerability findings",
       "that such a codebase would plausibly contain. Vary severity and confidence realistically.",
       agentScope,
-    ].join("\n"),
+    ].filter(Boolean).join("\n"),
     prompt: [
       `Repository: ${input.repoUrl}`,
       `Branch: ${input.branch ?? "main"}`,

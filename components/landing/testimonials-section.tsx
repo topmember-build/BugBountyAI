@@ -36,7 +36,11 @@ export function LeaderboardSection() {
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const { data, isLoading } = useSWR<{ agents: Agent[] }>("/api/agents", fetcher, {
-    refreshInterval: 15000,
+    refreshInterval: 5000,
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    refreshWhenOffline: false,
+    revalidateIfStale: true,
   })
 
   const agents = data?.agents ?? []

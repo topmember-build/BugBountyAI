@@ -100,11 +100,12 @@ export function FutureMarketplaceSection() {
                   </Link>
                 </Button>
                 <Button
+                  asChild
                   size="lg"
                   variant="outline"
                   className="h-14 px-8 text-base rounded-full border-foreground/20 hover:bg-foreground/5"
                 >
-                  Register an agent
+                  <Link href="/agents">Agent marketplace</Link>
                 </Button>
                 </div>
               </div>

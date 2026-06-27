@@ -165,13 +165,28 @@ export async function fundUserWallet(params: {
     if (!tokenId) {
       return { status: "failed", externalId: null, simulated: false, error: "No USDC in treasury wallet to fund users." }
     }
+    
+    const formattedAmount = params.amount.toFixed(6)
+    console.log("[circle] fundUserWallet preparing transaction", {
+      walletId: CIRCLE_WALLET_ID,
+      tokenId,
+      destinationAddress: params.destinationAddress,
+      amount: params.amount,
+      formattedAmount,
+      idempotencyKey: params.idempotencyKey,
+    })
+    
     const res = await client.createTransaction({
       walletId: CIRCLE_WALLET_ID!,
       tokenId,
       destinationAddress: params.destinationAddress,
-      amount: [params.amount.toFixed(6)],
+      amount: [formattedAmount],
       fee: { type: "level", config: { feeLevel: "MEDIUM" } },
       idempotencyKey: params.idempotencyKey,
+    })
+    console.log("[circle] fundUserWallet createTransaction response", {
+      txId: res.data?.id,
+      txState: res.data?.state,
     })
     return {
       status: res.data?.state === "COMPLETE" ? "settled" : "settling",
@@ -180,6 +195,11 @@ export async function fundUserWallet(params: {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown Circle error"
+    console.error("[circle] fundUserWallet caught exception", {
+      error: message,
+      errorType: err instanceof Error ? err.constructor.name : typeof err,
+      fullError: JSON.stringify(err, null, 2),
+    })
     return { status: "failed", externalId: null, simulated: false, error: message.slice(0, 300) }
   }
 }
@@ -194,7 +214,19 @@ export async function refundFee(params: {
   idempotencyKey: string
 }): Promise<FundingResult> {
   // Refund mechanics are identical to funding: treasury -> user wallet.
-  return fundUserWallet(params)
+  console.log("[circle] refundFee called", {
+    amount: params.amount,
+    destination: params.destinationAddress?.slice(0, 10),
+    circleConfigured: isCircleConfigured(),
+  })
+  const result = await fundUserWallet(params)
+  console.log("[circle] refundFee result", {
+    status: result.status,
+    externalId: result.externalId,
+    simulated: result.simulated,
+    error: result.error,
+  })
+  return result
 }
 
 export interface TransactionStatus {

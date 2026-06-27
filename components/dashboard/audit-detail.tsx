@@ -52,9 +52,16 @@ const rewardStyles: Record<string, string> = {
   failed: "bg-destructive/15 text-destructive border-destructive/30",
 }
 
+const auditStatusStyles: Record<string, string> = {
+  completed: "bg-primary/15 text-primary border-primary/30",
+  scanning: "bg-amber-500/15 text-amber-500 border-amber-500/30",
+  failed: "bg-destructive/15 text-destructive border-destructive/30",
+  default: "bg-muted text-muted-foreground border-border",
+}
+
 export function AuditDetail({ auditId }: { auditId: string }) {
   const router = useRouter()
-  const { data, isLoading, mutate } = useSWR<{ audit: Audit; findings: Finding[] }>(
+  const { data, isLoading, mutate } = useSWR<{ audit: Audit; findings: Finding[]; feeStatus?: string | null }>(
     `/api/audits/${auditId}`,
     fetcher,
   )
@@ -180,6 +187,27 @@ export function AuditDetail({ auditId }: { auditId: string }) {
   }
 
   const { audit, findings } = data
+  const feeStatusMessage =
+    audit.status === "failed" && data.feeStatus === "refunded"
+      ? "This audit failed, and the audit fee was refunded to your wallet."
+      : audit.status === "failed" && data.feeStatus === "refund_failed"
+        ? "This audit failed, but the fee refund could not be completed automatically."
+        : audit.status === "failed"
+          ? "This audit failed. The fee was not consumed."
+          : data.feeStatus === "refund_failed"
+            ? "The audit fee was consumed for this audit, but the leftover net amount could not be refunded automatically."
+            : data.feeStatus === "used"
+              ? "The audit fee was consumed for this audit. Any unused net amount was refunded to your wallet when available."
+              : null
+
+  const feeStatusBadgeText =
+    data.feeStatus === "refund_failed"
+      ? "Refund issue"
+      : data.feeStatus === "refunded"
+        ? "Refunded"
+        : data.feeStatus === "used"
+          ? "Fee consumed"
+          : null
 
   return (
     <div className="flex flex-col gap-8">
@@ -193,9 +221,19 @@ export function AuditDetail({ auditId }: { auditId: string }) {
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-display tracking-tight">
-              {audit.repo_name ?? audit.repo_url.replace(/^https?:\/\//, "")}
-            </h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-display tracking-tight">
+                {audit.repo_name ?? audit.repo_url.replace(/^https?:\/\//, "")}
+              </h1>
+              <Badge variant="outline" className={auditStatusStyles[audit.status] ?? auditStatusStyles.default}>
+                {audit.status}
+              </Badge>
+              {feeStatusBadgeText ? (
+                <Badge variant="outline" className={data.feeStatus === "refund_failed" ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-border bg-muted/50 text-muted-foreground"}>
+                  {feeStatusBadgeText}
+                </Badge>
+              ) : null}
+            </div>
             <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
               <span className="inline-flex items-center gap-1">
                 <GitBranch className="w-3.5 h-3.5" />
@@ -211,6 +249,12 @@ export function AuditDetail({ auditId }: { auditId: string }) {
             <div className="text-xs text-muted-foreground">USDC rewarded</div>
           </div>
         </div>
+        {feeStatusMessage ? (
+          <div className={`mt-4 rounded-lg border p-3 text-sm ${audit.status === "failed" ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-border bg-muted/50 text-muted-foreground"}`}>
+            {feeStatusMessage}
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap items-center gap-3 mt-4">
           <Button type="button" variant="outline" onClick={copyAuditContent}>
             <Copy className="w-4 h-4 mr-2" />

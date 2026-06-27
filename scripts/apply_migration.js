@@ -27,7 +27,8 @@ async function run() {
     process.exit(1)
   }
 
-  const migrationPath = path.join(repoRoot, 'supabase', 'migrations', '001_create_audit_fees.sql')
+  const migrationFile = process.argv[2] || '001_create_audit_fees.sql'
+  const migrationPath = path.join(repoRoot, 'supabase', 'migrations', migrationFile)
   if (!fs.existsSync(migrationPath)) {
     console.error('Migration file not found:', migrationPath)
     process.exit(1)

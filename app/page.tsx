@@ -10,6 +10,8 @@ import { CircleAgentStackSection } from "@/components/landing/security-section";
 import { LeaderboardSection } from "@/components/landing/testimonials-section";
 import { LiveMetricsSection } from "@/components/landing/metrics-section";
 import { FutureMarketplaceSection } from "@/components/landing/cta-section";
+import { BlogSection } from "@/components/landing/blog-section";
+import { DocsSection } from "@/components/landing/docs-section";
 import { FooterSection } from "@/components/landing/footer-section";
 
 export default function Home() {
@@ -26,6 +28,8 @@ export default function Home() {
       <CircleAgentStackSection />
       <LeaderboardSection />
       <LiveMetricsSection />
+      <BlogSection />
+      <DocsSection />
       <FutureMarketplaceSection />
       <FooterSection />
     </main>

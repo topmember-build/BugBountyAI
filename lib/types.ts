@@ -9,6 +9,8 @@ export interface Agent {
   name: string
   agent_type: AgentType
   description: string | null
+  focus_areas?: string | null
+  system_prompt?: string | null
   avatar_seed: string | null
   wallet_address: string | null
   findings_count: number
