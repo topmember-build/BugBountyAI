@@ -278,7 +278,8 @@ Returns: total audits, total findings, total rewards, active agents
 | **State Management** | React Hooks, SWR |
 | **Database** | PostgreSQL via Supabase |
 | **Authentication** | Auth0 + Supabase Auth |
-| **Payments** | Circle Web3 Services |
+| **Web3 & Wallets** | Circle User/Developer-Controlled Wallets, Arc Testnet |
+| **Payments** | Circle Agent Stack, USDC Settlement |
 | **Deployment** | Vercel |
 | **Bundler** | Turbopack |
 
@@ -304,7 +305,98 @@ vercel deploy       # Deploy to production
 vercel deploy --preview  # Deploy preview
 ```
 
-## 📊 Database Schema
+## � Circle & Arc Integration
+
+Bug Bounty AI leverages Circle's Web3 infrastructure and Arc's settlement network to enable instant, non-custodial reward distribution to agents and users.
+
+### Circle Tools & SDKs
+
+#### 1. **Circle Agent Stack**
+Enables autonomous AI agents to receive, hold, and manage their own USDC rewards.
+
+- **Purpose**: Provides autonomous agents with a programmable financial identity
+- **Usage**: Agents accumulate earnings directly without requiring human intermediaries
+- **Integration**: `lib/circle-user.ts` and `lib/circle.ts`
+
+#### 2. **Circle User-Controlled Wallets** (`@circle-fin/user-controlled-wallets`)
+Non-custodial wallet management for platform users.
+
+- **Purpose**: Each user gets their own secure, PIN-protected wallet on Arc testnet
+- **SDK Version**: `^10.6.0`
+- **Features**:
+  - User-initiated wallet setup and PIN configuration
+  - Passkey/biometric authentication support
+  - Self-custody with Circle key encryption
+  - Real-time balance tracking
+  - Multi-chain wallet support (configured for Arc testnet)
+
+#### 3. **Circle Developer-Controlled Wallets** (`@circle-fin/developer-controlled-wallets`)
+Serverside wallet for platform operations and reward settlement.
+
+- **Purpose**: Treasury wallet for holding USDC and distributing rewards
+- **SDK Version**: `^10.6.0`
+- **Features**:
+  - Platform-managed wallet with API-driven transactions
+  - Deterministic transaction signing
+  - Wallet balance queries
+  - Direct reward transfers to user wallets
+  - Transaction state tracking and reconciliation
+
+#### 4. **W3S Web SDK** (`@circle-fin/w3s-pw-web-sdk`)
+Browser-side SDK for wallet interactions.
+
+- **Purpose**: Browser-based wallet setup and challenge execution
+- **SDK Version**: `^1.1.11`
+- **Features**:
+  - Interactive PIN setup challenge flow
+  - Zero-knowledge wallet creation
+  - Local transaction signing
+  - Passkey enrollment and recovery
+
+### Arc Testnet Settlement
+
+**Configuration**: Wallets and settlement transactions run on **Arc testnet** (configurable via `CIRCLE_BLOCKCHAIN` environment variable, defaults to "ARC-TESTNET").
+
+**Flow**:
+```
+Audit Findings → Agent Reward Calculation → Circle Settlement Transaction → Arc Testnet → User Wallet (USDC)
+```
+
+**USDC Settlement**:
+- All rewards settle in USDC (stablecoin)
+- Instant finality on Arc testnet
+- Minimal transaction fees
+- Non-custodial settlement: user retains full control
+
+### Implementation Details
+
+**Key Files**:
+- [`lib/circle-user.ts`](lib/circle-user.ts) - User wallet registration, token generation, setup challenges
+- [`lib/circle.ts`](lib/circle.ts) - Reward settlement, transaction creation, wallet operations
+- [`app/api/wallet/*`](app/api/wallet) - Wallet management endpoints
+- [`app/api/rewards/*`](app/api/rewards) - Reward distribution endpoints
+
+**Environment Variables**:
+```env
+# Circle API Configuration
+CIRCLE_API_KEY=your_api_key                    # Circle API authentication
+CIRCLE_WALLET_ID=your_wallet_id                # Treasury wallet ID
+CIRCLE_ENTITY_SECRET=your_entity_secret        # Entity-level API secret
+NEXT_PUBLIC_CIRCLE_PUBLIC_KEY=your_public_key  # Client-side public key
+CIRCLE_APP_ID=your_app_id                      # Circle App ID for W3S
+CIRCLE_BLOCKCHAIN=ARC-TESTNET                  # Blockchain network (defaults to Arc testnet)
+CIRCLE_USDC_TOKEN_ID=your_usdc_token_id        # USDC token identifier
+```
+
+**Reward Distribution Flow**:
+1. Audit completes and findings are validated
+2. Severity-based reward calculation (Critical → $1000, High → $500, etc.)
+3. Platform treasury wallet initiates USDC transfer via Circle API
+4. Circle Developer Wallet creates transaction on Arc testnet
+5. User receives USDC in their non-custodial wallet
+6. Transaction state tracked in `findings.reward_status`
+
+## �📊 Database Schema
 
 ### Core Tables
 
