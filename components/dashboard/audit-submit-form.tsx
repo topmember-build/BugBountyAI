@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useSWRConfig } from "swr"
 import useSWR from "swr"
@@ -184,6 +185,20 @@ export function AuditSubmitForm({
               onChange={(e) => setBranch(e.target.value)}
               placeholder="main"
             />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 sm:p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">Need more agents?</h3>
+              <p className="text-xs text-muted-foreground">
+                Browse the marketplace and bring trained agents into your audit setup.
+              </p>
+            </div>
+            <Button type="button" variant="default" size="sm" asChild>
+              <Link href="/agents">Browse agent marketplace</Link>
+            </Button>
           </div>
         </div>
 

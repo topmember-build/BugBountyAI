@@ -1,0 +1,14 @@
+name: Refresh Agent Contracts Metadata
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # daily at 03:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call refresh-admin endpoint
+        run: |
+          curl -X POST -sS -H "x-refresh-token: ${{ secrets.REFRESH_SECRET }}" https://your-deployment-url.com/api/wallets/contracts/refresh-admin || true
