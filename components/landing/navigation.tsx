@@ -23,13 +23,34 @@ export function Navigation() {
 
   useEffect(() => {
     const supabase = createClient();
+
+    if (!supabase) {
+      setIsAuthLoading(false);
+      return;
+    }
+
     let mounted = true;
 
     const refreshUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!mounted) return;
-      setIsAuthenticated(!!data.user);
-      setIsAuthLoading(false);
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (!mounted) return;
+
+        if (error) {
+          console.warn('Supabase auth lookup failed:', error.message);
+          setIsAuthenticated(false);
+        } else {
+          setIsAuthenticated(!!data.user);
+        }
+      } catch (error) {
+        if (!mounted) return;
+        console.warn('Supabase auth lookup skipped due to a transient error:', error instanceof Error ? error.message : error);
+        setIsAuthenticated(false);
+      } finally {
+        if (mounted) {
+          setIsAuthLoading(false);
+        }
+      }
     };
 
     refreshUser();

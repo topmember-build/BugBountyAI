@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError) {
-      return NextResponse.json({ agents: [] }, { status: 401 })
+      return NextResponse.json({ agents: [] })
     }
 
     userId = user?.id ?? null
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
 
   if (showMine) {
     if (!userId) {
-      return NextResponse.json({ agents: [] }, { status: 401 })
+      return NextResponse.json({ agents: [] })
     }
     query = query.eq("owner_id", userId)
   }

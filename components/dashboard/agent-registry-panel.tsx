@@ -20,9 +20,13 @@ const agentTypes: Array<{ value: AgentType; label: string; hint: string }> = [
 
 const fetcher = async (url: string) => {
   const res = await fetch(url, { credentials: "include" })
-  const data = await res.json()
+  const data = await res.json().catch(() => ({}))
 
   if (!res.ok) {
+    if (res.status === 401) {
+      return { agents: [] }
+    }
+
     throw new Error(data.error || res.statusText)
   }
 

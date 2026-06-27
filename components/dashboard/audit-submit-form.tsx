@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useSWRConfig } from "swr"
 import useSWR from "swr"
@@ -50,7 +50,37 @@ export function AuditSubmitForm({
     fetcher,
     { revalidateOnFocus: false },
   )
+  const { data: publicAgentsData, isLoading: publicAgentsLoading } = useSWR<{ agents: Agent[] }>(
+    "/api/agents",
+    fetcher,
+    { revalidateOnFocus: false },
+  )
   const registeredAgents = registeredData?.agents ?? []
+  const publicAgents = publicAgentsData?.agents ?? []
+
+  const visibleAgents = useMemo(() => {
+    const selectedCards = selectedAgentIds
+      .map((id) => {
+        const knownAgent = [...registeredAgents, ...publicAgents].find((agent) => agent.id === id)
+        return knownAgent ?? {
+          id,
+          name: id,
+          description: "Selected from the marketplace",
+          agent_type: "custom",
+        }
+      })
+      .filter((agent, index, list) => list.findIndex((item) => item.id === agent.id) === index)
+
+    if (!selectedAgentIds.length) {
+      return registeredAgents
+    }
+
+    const remainingRegisteredAgents = registeredAgents.filter(
+      (agent) => !selectedAgentIds.includes(agent.id),
+    )
+
+    return [...selectedCards, ...remainingRegisteredAgents]
+  }, [publicAgents, registeredAgents, selectedAgentIds])
 
   const toggleAgent = (id: string) => {
     setSelectedAgents((prev) =>
@@ -160,17 +190,17 @@ export function AuditSubmitForm({
               </span>
             ) : null}
           </div>
-          {registeredLoading ? (
+          {registeredLoading || publicAgentsLoading ? (
             <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
               Loading your agents...
             </div>
-          ) : registeredAgents.length === 0 ? (
+          ) : visibleAgents.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
               No trained agents found. Register one above to use custom prompts in audits.
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 gap-3">
-              {registeredAgents.map((agent) => {
+              {visibleAgents.map((agent) => {
                 const isSelected = selectedAgentIds.includes(agent.id)
                 return (
                   <button
