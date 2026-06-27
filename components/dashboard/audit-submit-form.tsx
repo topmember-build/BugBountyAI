@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useSWRConfig } from "swr"
@@ -46,52 +46,13 @@ export function AuditSubmitForm({
       setSelectedAgentIds(initialSelectedAgentIds)
     }
   }, [initialSelectedAgentIds])
+
   const { data: registeredData, isLoading: registeredLoading } = useSWR<{ agents: Agent[] }>(
     "/api/agents?mine=1",
     fetcher,
     { revalidateOnFocus: false },
   )
-  const { data: publicAgentsData, isLoading: publicAgentsLoading } = useSWR<{ agents: Agent[] }>(
-    "/api/agents",
-    fetcher,
-    { revalidateOnFocus: false },
-  )
   const registeredAgents = registeredData?.agents ?? []
-  const publicAgents = publicAgentsData?.agents ?? []
-
-  const visibleAgents = useMemo(() => {
-    // Build a unique agent map by ID to guarantee no duplicates
-    const agentMap = new Map<string, Agent>()
-
-    // Add registered agents first (these are the base agents showing on audit page)
-    registeredAgents.forEach((agent) => {
-      agentMap.set(agent.id, agent)
-    })
-
-    // Add only PUBLIC agents not already registered
-    publicAgents.forEach((agent) => {
-      if (!agentMap.has(agent.id)) {
-        agentMap.set(agent.id, agent)
-      }
-    })
-
-    // If no marketplace agents selected, return only registered agents
-    if (!selectedAgentIds.length) {
-      return registeredAgents
-    }
-
-    // Get all unique agents, then split into selected and unselected
-    const allAgents = Array.from(agentMap.values())
-    const selectedAgents = allAgents.filter((agent) =>
-      selectedAgentIds.includes(agent.id)
-    )
-    const unselectedAgents = allAgents.filter(
-      (agent) => !selectedAgentIds.includes(agent.id)
-    )
-
-    // Return selected first, then unselected (so marketplace selections appear at top)
-    return [...selectedAgents, ...unselectedAgents]
-  }, [publicAgents, registeredAgents, selectedAgentIds])
 
   const toggleAgent = (id: string) => {
     setSelectedAgents((prev) =>
@@ -215,17 +176,17 @@ export function AuditSubmitForm({
               </span>
             ) : null}
           </div>
-          {registeredLoading || publicAgentsLoading ? (
+          {registeredLoading ? (
             <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
               Loading your agents...
             </div>
-          ) : visibleAgents.length === 0 ? (
+          ) : registeredAgents.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
               No trained agents found. Register one above to use custom prompts in audits.
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {visibleAgents.map((agent) => {
+              {registeredAgents.map((agent) => {
                 const isSelected = selectedAgentIds.includes(agent.id)
                 return (
                   <button
