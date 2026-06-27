@@ -131,22 +131,20 @@ export function AuditSubmitForm({
   const visibleAgents = React.useMemo(() => {
     const agentMap = new Map<string, Agent>()
 
-    registeredAgents.forEach((agent) => agentMap.set(agent.id, agent))
-    publicAgents.forEach((agent) => {
-      if (!agentMap.has(agent.id)) {
-        agentMap.set(agent.id, agent)
+    const addAgent = (agent: Agent) => {
+      const key = agent.slug ?? agent.id
+      if (!agentMap.has(key)) {
+        agentMap.set(key, agent)
       }
-    })
+    }
 
-    const selectedExtraAgents = selectedAgentIds
+    registeredAgents.forEach(addAgent)
+    publicAgents.forEach(addAgent)
+
+    selectedAgentIds
       .map((id) => publicAgents.find((agent) => agent.id === id) ?? registeredAgents.find((agent) => agent.id === id))
       .filter((agent): agent is Agent => Boolean(agent))
-
-    selectedExtraAgents.forEach((agent) => {
-      if (!agentMap.has(agent.id)) {
-        agentMap.set(agent.id, agent)
-      }
-    })
+      .forEach(addAgent)
 
     return Array.from(agentMap.values())
   }, [publicAgents, registeredAgents, selectedAgentIds])
