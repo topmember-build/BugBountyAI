@@ -15,10 +15,14 @@ export default function DashboardPage() {
   const archivePath = searchParams.get("archivePath")
   const archiveFilename = searchParams.get("archiveFilename")
   const agentIdsParam = searchParams.get("agentIds") || ""
-  const initialSelectedAgentIds = agentIdsParam
-    .split(",")
-    .map((id) => id.trim())
-    .filter(Boolean)
+  const initialSelectedAgentIds = Array.from(
+    new Set(
+      agentIdsParam
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  )
   const { data, mutate } = useSWR<{ feeTransactionId?: string }>("/api/wallet", fetcher)
   const feeTransactionId = data?.feeTransactionId ?? null
 

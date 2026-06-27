@@ -33,8 +33,8 @@ export function AuditSubmitForm({
 }) {
   const [repoUrl, setRepoUrl] = useState("")
   const [branch, setBranch] = useState("main")
-  const [selectedAgents, setSelectedAgents] = useState<string[]>(["security", "logic", "dependency"])
-  const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>(initialSelectedAgentIds)
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([])
+  const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -43,7 +43,7 @@ export function AuditSubmitForm({
 
   useEffect(() => {
     if (initialSelectedAgentIds.length > 0) {
-      setSelectedAgentIds(initialSelectedAgentIds)
+      setSelectedAgentIds(Array.from(new Set(initialSelectedAgentIds)))
     }
   }, [initialSelectedAgentIds])
 
@@ -52,7 +52,14 @@ export function AuditSubmitForm({
     fetcher,
     { revalidateOnFocus: false },
   )
+  const { data: publicAgentsData, isLoading: publicAgentsLoading } = useSWR<{ agents: Agent[] }>(
+    "/api/agents",
+    fetcher,
+    { revalidateOnFocus: false },
+  )
+
   const registeredAgents = registeredData?.agents ?? []
+  const publicAgents = publicAgentsData?.agents ?? []
 
   const toggleAgent = (id: string) => {
     setSelectedAgents((prev) =>
@@ -121,6 +128,18 @@ export function AuditSubmitForm({
     }
   }
 
+  const visibleAgents = React.useMemo(() => {
+    const defaultAgents = registeredAgents
+    const selectedExtraAgents = selectedAgentIds
+      .filter((id) => !defaultAgents.some((agent) => agent.id === id))
+      .map((id) => publicAgents.find((agent) => agent.id === id))
+      .filter((agent): agent is Agent => Boolean(agent))
+
+    return [...defaultAgents, ...selectedExtraAgents]
+  }, [publicAgents, registeredAgents, selectedAgentIds])
+
+  const isAgentSelectionLoading = registeredLoading || (selectedAgentIds.length > 0 && publicAgentsLoading)
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -176,17 +195,17 @@ export function AuditSubmitForm({
               </span>
             ) : null}
           </div>
-          {registeredLoading ? (
+          {isAgentSelectionLoading ? (
             <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
               Loading your agents...
             </div>
-          ) : registeredAgents.length === 0 ? (
+          ) : visibleAgents.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-              No trained agents found. Register one above to use custom prompts in audits.
+              No selected trained agents available. Choose agents from the marketplace or register one.
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {registeredAgents.map((agent) => {
+              {visibleAgents.map((agent) => {
                 const isSelected = selectedAgentIds.includes(agent.id)
                 return (
                   <button
