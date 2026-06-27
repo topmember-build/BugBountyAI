@@ -129,13 +129,26 @@ export function AuditSubmitForm({
   }
 
   const visibleAgents = React.useMemo(() => {
-    const defaultAgents = registeredAgents
+    const agentMap = new Map<string, Agent>()
+
+    registeredAgents.forEach((agent) => agentMap.set(agent.id, agent))
+    publicAgents.forEach((agent) => {
+      if (!agentMap.has(agent.id)) {
+        agentMap.set(agent.id, agent)
+      }
+    })
+
     const selectedExtraAgents = selectedAgentIds
-      .filter((id) => !defaultAgents.some((agent) => agent.id === id))
-      .map((id) => publicAgents.find((agent) => agent.id === id))
+      .map((id) => publicAgents.find((agent) => agent.id === id) ?? registeredAgents.find((agent) => agent.id === id))
       .filter((agent): agent is Agent => Boolean(agent))
 
-    return [...defaultAgents, ...selectedExtraAgents]
+    selectedExtraAgents.forEach((agent) => {
+      if (!agentMap.has(agent.id)) {
+        agentMap.set(agent.id, agent)
+      }
+    })
+
+    return Array.from(agentMap.values())
   }, [publicAgents, registeredAgents, selectedAgentIds])
 
   const isAgentSelectionLoading = registeredLoading || (selectedAgentIds.length > 0 && publicAgentsLoading)
@@ -216,7 +229,7 @@ export function AuditSubmitForm({
                         prev.includes(agent.id) ? prev.filter((id) => id !== agent.id) : [...prev, agent.id],
                       )
                     }
-                    className={`flex flex-col items-start gap-2 rounded-lg border p-3 text-left transition-all duration-300 ${
+                    className={`flex w-full flex-col items-start gap-2 rounded-lg border p-3 text-left transition-all duration-300 ${
                       isSelected
                         ? "border-primary bg-accent"
                         : "border-border hover:border-primary/40"
