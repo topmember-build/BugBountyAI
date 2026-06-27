@@ -66,7 +66,7 @@ export default function AgentsPage() {
             </div>
           ) : (
             agents.map((agent: Agent) => (
-              <Card key={agent.id} className="rounded-3xl border border-border p-6">
+              <Card key={agent.id} className="flex flex-col rounded-3xl border border-border p-6">
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <div>
                     <h2 className="text-xl font-semibold">{agent.name}</h2>
@@ -89,14 +89,22 @@ export default function AgentsPage() {
                   <span>• ${Number(agent.total_earned).toFixed(0)} earned</span>
                   <span>• rep {agent.reputation}</span>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  className={`w-full ${selectedAgentIds.includes(agent.id) ? "bg-primary text-primary-foreground" : ""}`}
-                  onClick={() => toggleSelected(agent.id)}
-                >
-                  {selectedAgentIds.includes(agent.id) ? "Selected" : "Select for audit"}
-                </Button>
+                <div className="mt-auto flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={selectedAgentIds.includes(agent.id) ? "default" : "outline"}
+                    className="w-full"
+                    onClick={() => toggleSelected(agent.id)}
+                  >
+                    {selectedAgentIds.includes(agent.id) ? "Selected for audit" : "Select for audit"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedAgentIds.includes(agent.id)
+                      ? "This agent will be carried into your audit setup."
+                      : "Choose this agent to use it in the next audit."}
+                  </p>
+                </div>
               </Card>
             ))
           )}

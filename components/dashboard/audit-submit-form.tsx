@@ -59,27 +59,35 @@ export function AuditSubmitForm({
   const publicAgents = publicAgentsData?.agents ?? []
 
   const visibleAgents = useMemo(() => {
-    const selectedCards = selectedAgentIds
-      .map((id) => {
-        const knownAgent = [...registeredAgents, ...publicAgents].find((agent) => agent.id === id)
-        return knownAgent ?? {
-          id,
-          name: id,
-          description: "Selected from the marketplace",
-          agent_type: "custom",
-        }
-      })
-      .filter((agent, index, list) => list.findIndex((item) => item.id === agent.id) === index)
+    const seenIds = new Set<string>()
+    const mergedAgents: Agent[] = []
+
+    const addAgent = (agent: Agent | undefined) => {
+      if (!agent?.id || seenIds.has(agent.id)) return
+      seenIds.add(agent.id)
+      mergedAgents.push(agent as Agent)
+    }
+
+    selectedAgentIds.forEach((id) => {
+      addAgent([...registeredAgents, ...publicAgents].find((agent) => agent.id === id))
+    })
+
+    registeredAgents.forEach((agent) => {
+      addAgent(agent)
+    })
+
+    publicAgents.forEach((agent) => {
+      addAgent(agent)
+    })
 
     if (!selectedAgentIds.length) {
       return registeredAgents
     }
 
-    const remainingRegisteredAgents = registeredAgents.filter(
-      (agent) => !selectedAgentIds.includes(agent.id),
-    )
+    const selectedVisibleAgents = mergedAgents.filter((agent) => selectedAgentIds.includes(agent.id))
+    const unselectedVisibleAgents = mergedAgents.filter((agent) => !selectedAgentIds.includes(agent.id))
 
-    return [...selectedCards, ...remainingRegisteredAgents]
+    return [...selectedVisibleAgents, ...unselectedVisibleAgents]
   }, [publicAgents, registeredAgents, selectedAgentIds])
 
   const toggleAgent = (id: string) => {
@@ -181,10 +189,10 @@ export function AuditSubmitForm({
 
         {/* Use registered agents */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="font-semibold text-sm">Use trained agents</h3>
             {selectedAgentIds.length > 0 ? (
-              <span className="inline-flex items-center gap-2 text-xs font-mono px-2 py-1 rounded-full bg-primary text-primary-foreground">
+              <span className="inline-flex w-fit items-center gap-2 text-xs font-mono px-2 py-1 rounded-full bg-primary text-primary-foreground">
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                 Using registered agents
               </span>
@@ -199,7 +207,7 @@ export function AuditSubmitForm({
               No trained agents found. Register one above to use custom prompts in audits.
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               {visibleAgents.map((agent) => {
                 const isSelected = selectedAgentIds.includes(agent.id)
                 return (
@@ -211,42 +219,47 @@ export function AuditSubmitForm({
                         prev.includes(agent.id) ? prev.filter((id) => id !== agent.id) : [...prev, agent.id],
                       )
                     }
-                    className={`flex flex-col items-start gap-2 p-3 rounded-lg border text-left transition-all duration-300 ${
+                    className={`flex flex-col items-start gap-2 rounded-lg border p-3 text-left transition-all duration-300 ${
                       isSelected
                         ? "border-primary bg-accent"
                         : "border-border hover:border-primary/40"
                     }`}
                   >
-                    <div className="flex items-center gap-2 w-full justify-between">
+                    <div className="flex w-full flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                       <span className="text-sm font-medium">{agent.name}</span>
                       <span className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
                         {agent.agent_type}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground line-clamp-2">{agent.description ?? "No description."}</p>
-                    {isSelected && <span className="text-xs text-primary">Selected</span>}
+                    {isSelected && <span className="text-xs font-medium text-primary">Selected</span>}
                   </button>
                 )
               })}
             </div>
           )}
-          <p className="text-xs text-muted-foreground">
-            Selecting trained agents will use their custom guidance; otherwise you can choose specialties below.
-          </p>
+          <div className="flex flex-col gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Selecting trained agents will use their custom guidance; otherwise you can choose specialties below.
+            </p>
+            <Button type="button" variant="outline" size="sm" asChild>
+              <a href="/agents">Browse agent marketplace</a>
+            </Button>
+          </div>
         </div>
 
         {/* Choose Agents */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="font-semibold text-sm">Choose agent specialties</h3>
             {selectedAgents.length > 0 && selectedAgentIds.length === 0 ? (
-              <span className="inline-flex items-center gap-2 text-xs font-mono px-2 py-1 rounded-full bg-accent text-accent-foreground">
+              <span className="inline-flex w-fit items-center gap-2 text-xs font-mono px-2 py-1 rounded-full bg-accent text-accent-foreground">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                 Audit Swarm Ready
               </span>
             ) : null}
           </div>
-          <div className="grid sm:grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             {selectableAgents.map((agent) => {
               const Icon = agent.icon
               const isSelected = selectedAgents.includes(agent.id)
