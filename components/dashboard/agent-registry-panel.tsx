@@ -120,11 +120,14 @@ export function AgentRegistryPanel() {
     try {
       const eth = (window as any).ethereum
       if (!eth) {
-        setError("No Ethereum provider found in the browser.")
+        setError("No Ethereum-compatible wallet found in the browser. Please install MetaMask or another Web3 wallet.")
         return
       }
       const accounts = await eth.request({ method: "eth_requestAccounts" })
-      if (accounts && accounts[0]) setWalletAddress(accounts[0])
+      if (accounts && accounts[0]) {
+        setWalletAddress(accounts[0])
+        setWalletVerified(false)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
@@ -260,7 +263,7 @@ export function AgentRegistryPanel() {
                   value={walletAddress ?? ""}
                   onChange={(e) => { setWalletAddress(e.target.value); setWalletVerified(false) }}
                 />
-                <Button type="button" onClick={handleConnectWallet}>Connect</Button>
+                <Button type="button" onClick={handleConnectWallet}>Connect wallet</Button>
                 <Button
                   type="button"
                   onClick={handleVerifyWallet}
@@ -276,37 +279,52 @@ export function AgentRegistryPanel() {
               {walletsLoading ? (
                 <div className="text-sm text-muted-foreground mt-2">Loading linked wallets...</div>
               ) : walletsData?.wallets?.length ? (
-                <div className="mt-2 space-y-2">
-                  {walletsData.wallets.map((w) => (
-                    <div key={w.address} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                      <div className="truncate">{w.address}</div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-xs text-muted-foreground">{new Date(w.created_at).toLocaleString()}</div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={async () => {
-                            if (!confirm('Unlink wallet ' + w.address + '?')) return
-                            try {
-                              const res = await fetch('/api/wallets/remove', {
-                                method: 'POST',
-                                credentials: 'include',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ address: w.address }),
-                              })
-                              const body = await res.json()
-                              if (!res.ok) throw new Error(body.error ?? 'Failed to unlink')
-                              mutateWallets()
-                            } catch (err) {
-                              setError(err instanceof Error ? err.message : String(err))
-                            }
-                          }}
-                        >
-                          Unlink
-                        </Button>
+                <div className="mt-2 space-y-3">
+                  <div className="text-sm text-muted-foreground">Previously verified earning wallets</div>
+                  <div className="grid gap-2">
+                    {walletsData.wallets.map((w) => (
+                      <div key={w.address} className="flex flex-col gap-2 rounded-md border p-3 text-sm">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="truncate font-medium">{w.address}</div>
+                          <Button
+                            variant={w.address === walletAddress ? "secondary" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              setWalletAddress(w.address)
+                              setWalletVerified(true)
+                            }}
+                          >
+                            {w.address === walletAddress ? "Selected" : "Use"}
+                          </Button>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                          <span>{new Date(w.created_at).toLocaleString()}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              if (!confirm('Unlink wallet ' + w.address + '?')) return
+                              try {
+                                const res = await fetch('/api/wallets/remove', {
+                                  method: 'POST',
+                                  credentials: 'include',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ address: w.address }),
+                                })
+                                const body = await res.json()
+                                if (!res.ok) throw new Error(body.error ?? 'Failed to unlink')
+                                mutateWallets()
+                              } catch (err) {
+                                setError(err instanceof Error ? err.message : String(err))
+                              }
+                            }}
+                          >
+                            Unlink
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               ) : null}
 
