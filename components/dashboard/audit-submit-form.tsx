@@ -60,33 +60,47 @@ export function AuditSubmitForm({
   const publicAgents = publicAgentsData?.agents ?? []
 
   const visibleAgents = useMemo(() => {
+    // Deduplicate: combine registered and public agents, keeping only one copy per ID
     const seenIds = new Set<string>()
-    const mergedAgents: Agent[] = []
+    const deduplicatedAgents: Agent[] = []
 
-    const addAgent = (agent: Agent | undefined) => {
-      if (!agent?.id || seenIds.has(agent.id)) return
-      seenIds.add(agent.id)
-      mergedAgents.push(agent as Agent)
-    }
-
+    // First add selected agents in order
     selectedAgentIds.forEach((id) => {
-      addAgent([...registeredAgents, ...publicAgents].find((agent) => agent.id === id))
+      const agent = [...registeredAgents, ...publicAgents].find((a) => a.id === id)
+      if (agent && !seenIds.has(id)) {
+        seenIds.add(id)
+        deduplicatedAgents.push(agent)
+      }
     })
 
+    // Then add registered agents (skip if already added)
     registeredAgents.forEach((agent) => {
-      addAgent(agent)
+      if (!seenIds.has(agent.id)) {
+        seenIds.add(agent.id)
+        deduplicatedAgents.push(agent)
+      }
     })
 
+    // Then add public agents (skip if already added)
     publicAgents.forEach((agent) => {
-      addAgent(agent)
+      if (!seenIds.has(agent.id)) {
+        seenIds.add(agent.id)
+        deduplicatedAgents.push(agent)
+      }
     })
 
+    // If no selected agents, show only registered agents
     if (!selectedAgentIds.length) {
       return registeredAgents
     }
 
-    const selectedVisibleAgents = mergedAgents.filter((agent) => selectedAgentIds.includes(agent.id))
-    const unselectedVisibleAgents = mergedAgents.filter((agent) => !selectedAgentIds.includes(agent.id))
+    // Sort: selected agents first, then unselected
+    const selectedVisibleAgents = deduplicatedAgents.filter((agent) =>
+      selectedAgentIds.includes(agent.id)
+    )
+    const unselectedVisibleAgents = deduplicatedAgents.filter(
+      (agent) => !selectedAgentIds.includes(agent.id)
+    )
 
     return [...selectedVisibleAgents, ...unselectedVisibleAgents]
   }, [publicAgents, registeredAgents, selectedAgentIds])
@@ -223,7 +237,11 @@ export function AuditSubmitForm({
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {visibleAgents.map((agent) => {
+              {Array.from(
+                new Map(
+                  visibleAgents.map((agent) => [agent.id, agent])
+                ).values()
+              ).map((agent) => {
                 const isSelected = selectedAgentIds.includes(agent.id)
                 return (
                   <button
