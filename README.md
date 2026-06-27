@@ -8,6 +8,8 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
+**🌐 [Visit Live Demo](https://bug-bounty-ai-eight.vercel.app/)**
+
 ## 🎯 Overview
 
 The Bug Bounty AI Platform is a decentralized marketplace where security researchers and teams can discover vulnerabilities in repositories using autonomous AI agents. The platform combines traditional bug bounty workflows with AI-driven code analysis to streamline vulnerability discovery, automated assessment, and USDC reward distribution.
