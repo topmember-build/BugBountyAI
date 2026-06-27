@@ -28,7 +28,7 @@ export function HeroSection() {
   return (
     <section className="relative min-h-screen flex flex-col justify-center overflow-hidden">
       {/* Animated sphere background */}
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[600px] h-[600px] lg:w-[800px] lg:h-[800px] opacity-40 pointer-events-none">
+      <div className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 w-[600px] h-[600px] lg:w-[800px] lg:h-[800px] opacity-40 pointer-events-none">
         <AnimatedSphere />
       </div>
       
@@ -141,45 +141,47 @@ export function HeroSection() {
       
       {/* Stats marquee - full width outside container */}
       <div 
-        className={`absolute bottom-24 left-0 right-0 transition-all duration-700 delay-500 ${
+        className={`absolute bottom-24 left-0 right-0 transition-all duration-700 delay-500 overflow-hidden ${
           isVisible ? "opacity-100" : "opacity-0"
         }`}
       >
-        <div className="flex gap-16 marquee whitespace-nowrap">
-          {[...Array(2)].map((_, i) => (
-            <div key={i} className="flex gap-16">
-              {[
-                {
-                  value: metrics ? metrics.findingsDiscovered.toLocaleString() : "---",
-                  label: "findings discovered",
-                  company: "ALL TIME",
-                },
-                {
-                  value: metrics ? `$${metrics.usdcDistributed.toLocaleString()}` : "---",
-                  label: "USDC distributed",
-                  company: "TO AGENTS",
-                },
-                {
-                  value: metrics ? metrics.auditsCompleted.toLocaleString() : "---",
-                  label: "audits completed",
-                  company: "AND COUNTING",
-                },
-                {
-                  value: "<1s",
-                  label: "Arc settlement",
-                  company: "PER REWARD",
-                },
-              ].map((stat) => (
-                <div key={`${stat.company}-${i}`} className="flex items-baseline gap-4">
-                  <span className="text-4xl lg:text-5xl font-display">{stat.value}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {stat.label}
-                    <span className="block font-mono text-xs mt-1">{stat.company}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          ))}
+        <div className="mx-auto w-full max-w-[100vw] px-6 overflow-hidden">
+          <div className="flex gap-16 marquee whitespace-nowrap min-w-full">
+            {[...Array(2)].map((_, i) => (
+              <div key={i} className="flex gap-16">
+                {[
+                  {
+                    value: metrics ? metrics.findingsDiscovered.toLocaleString() : "---",
+                    label: "findings discovered",
+                    company: "ALL TIME",
+                  },
+                  {
+                    value: metrics ? `$${metrics.usdcDistributed.toLocaleString()}` : "---",
+                    label: "USDC distributed",
+                    company: "TO AGENTS",
+                  },
+                  {
+                    value: metrics ? metrics.auditsCompleted.toLocaleString() : "---",
+                    label: "audits completed",
+                    company: "AND COUNTING",
+                  },
+                  {
+                    value: "<1s",
+                    label: "Arc settlement",
+                    company: "PER REWARD",
+                  },
+                ].map((stat) => (
+                  <div key={`${stat.company}-${i}`} className="flex items-baseline gap-4">
+                    <span className="text-4xl lg:text-5xl font-display">{stat.value}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {stat.label}
+                      <span className="block font-mono text-xs mt-1">{stat.company}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       
