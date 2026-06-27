@@ -60,49 +60,37 @@ export function AuditSubmitForm({
   const publicAgents = publicAgentsData?.agents ?? []
 
   const visibleAgents = useMemo(() => {
-    // Deduplicate: combine registered and public agents, keeping only one copy per ID
-    const seenIds = new Set<string>()
-    const deduplicatedAgents: Agent[] = []
+    // Build a unique agent map by ID to guarantee no duplicates
+    const agentMap = new Map<string, Agent>()
 
-    // First add selected agents in order
-    selectedAgentIds.forEach((id) => {
-      const agent = [...registeredAgents, ...publicAgents].find((a) => a.id === id)
-      if (agent && !seenIds.has(id)) {
-        seenIds.add(id)
-        deduplicatedAgents.push(agent)
-      }
-    })
-
-    // Then add registered agents (skip if already added)
+    // Add registered agents first (these are the base agents showing on audit page)
     registeredAgents.forEach((agent) => {
-      if (!seenIds.has(agent.id)) {
-        seenIds.add(agent.id)
-        deduplicatedAgents.push(agent)
-      }
+      agentMap.set(agent.id, agent)
     })
 
-    // Then add public agents (skip if already added)
+    // Add only PUBLIC agents not already registered
     publicAgents.forEach((agent) => {
-      if (!seenIds.has(agent.id)) {
-        seenIds.add(agent.id)
-        deduplicatedAgents.push(agent)
+      if (!agentMap.has(agent.id)) {
+        agentMap.set(agent.id, agent)
       }
     })
 
-    // If no selected agents, show only registered agents
+    // If no marketplace agents selected, return only registered agents
     if (!selectedAgentIds.length) {
       return registeredAgents
     }
 
-    // Sort: selected agents first, then unselected
-    const selectedVisibleAgents = deduplicatedAgents.filter((agent) =>
+    // Get all unique agents, then split into selected and unselected
+    const allAgents = Array.from(agentMap.values())
+    const selectedAgents = allAgents.filter((agent) =>
       selectedAgentIds.includes(agent.id)
     )
-    const unselectedVisibleAgents = deduplicatedAgents.filter(
+    const unselectedAgents = allAgents.filter(
       (agent) => !selectedAgentIds.includes(agent.id)
     )
 
-    return [...selectedVisibleAgents, ...unselectedVisibleAgents]
+    // Return selected first, then unselected (so marketplace selections appear at top)
+    return [...selectedAgents, ...unselectedAgents]
   }, [publicAgents, registeredAgents, selectedAgentIds])
 
   const toggleAgent = (id: string) => {
@@ -237,11 +225,7 @@ export function AuditSubmitForm({
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {Array.from(
-                new Map(
-                  visibleAgents.map((agent) => [agent.id, agent])
-                ).values()
-              ).map((agent) => {
+              {visibleAgents.map((agent) => {
                 const isSelected = selectedAgentIds.includes(agent.id)
                 return (
                   <button
