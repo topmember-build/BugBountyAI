@@ -22,9 +22,8 @@ export async function GET(request: NextRequest) {
         console.error('Failed to provision Circle user after auth callback:', circleError)
       }
 
-      const redirectUrl = new URL(next, origin)
-      redirectUrl.searchParams.set('walletSetup', '1')
-      return NextResponse.redirect(redirectUrl)
+      // Redirect to confirmation success page instead of dashboard
+      return NextResponse.redirect(`${origin}/auth/confirmation-success`)
     }
   }
 
