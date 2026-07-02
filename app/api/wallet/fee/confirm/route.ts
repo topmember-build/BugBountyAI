@@ -127,7 +127,7 @@ export async function POST(request: Request) {
         })
 
         // Update fee row with new challenge ID
-        const { error: updateError } = await supabase
+        const { error: updateError } = await admin
           .from("audit_fees")
           .update({ challenge_id: newChallenge.challengeId })
           .eq("user_id", user.id)
@@ -161,35 +161,93 @@ export async function POST(request: Request) {
     transactionId = challenge.correlationIds?.[0] ?? null
   }
 
-  const updatePayload: { status: "pending" | "authorized"; transaction_id?: string | null } = {
+  const updatePayload: { status: "pending" | "authorized"; transaction_id?: string | null; challenge_id?: string | null } = {
     status: transactionId ? "authorized" : "pending",
   }
   if (transactionId) {
     updatePayload.transaction_id = transactionId
   }
-
-  const query = supabase.from("audit_fees").update(updatePayload)
-    .eq("user_id", user.id)
-    .in("status", ["pending", "authorized"])
-
   if (challengeId) {
-    query.eq("challenge_id", challengeId)
-  } else if (transactionId) {
-    query.eq("transaction_id", transactionId)
+    updatePayload.challenge_id = challengeId
   }
 
-  const { data, error } = await query.select().single()
+  let feeQuery = supabase
+    .from("audit_fees")
+    .select("id, status, transaction_id, challenge_id")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(5)
 
-  if (error || !data) {
+  if (challengeId) {
+    feeQuery = feeQuery.eq("challenge_id", challengeId)
+  } else if (transactionId) {
+    feeQuery = feeQuery.eq("transaction_id", transactionId)
+  }
+
+  const { data: matchingRows, error: feeRowError } = await feeQuery
+
+  if (feeRowError) {
     return NextResponse.json(
-      { error: error?.message ?? "No pending fee found for that transaction" },
+      { error: feeRowError.message ?? "Unable to look up fee record" },
       { status: 400 },
     )
   }
 
+  const existingFeeRow = matchingRows?.find(
+    (row) => row.status === "pending" || row.status === "authorized",
+  )
+
+  let feeRowId: string | null = null
+  let updatedRow: { id: string; status: string; transaction_id: string | null } | null = null
+
+  if (existingFeeRow) {
+    const { data, error: updateError } = await admin
+      .from("audit_fees")
+      .update(updatePayload)
+      .eq("id", existingFeeRow.id)
+      .select("id, status, transaction_id")
+      .single()
+
+    if (updateError || !data) {
+      return NextResponse.json(
+        { error: updateError?.message ?? "Unable to update fee authorization" },
+        { status: 400 },
+      )
+    }
+
+    feeRowId = data.id
+    updatedRow = data
+  } else {
+    const { escrow, net } = computeEscrowBreakdown(BASE_FEE_AMOUNT)
+    const { data: insertedRow, error: insertError } = await admin
+      .from("audit_fees")
+      .insert({
+        user_id: user.id,
+        challenge_id: challengeId ?? null,
+        transaction_id: transactionId ?? null,
+        amount: BASE_FEE_AMOUNT,
+        escrow_fee: escrow,
+        net_amount: net,
+        status: updatePayload.status,
+      })
+      .select("id, status, transaction_id")
+      .single()
+
+    if (insertError || !insertedRow) {
+      return NextResponse.json(
+        { error: insertError?.message ?? "Unable to create fee authorization record" },
+        { status: 400 },
+      )
+    }
+
+    feeRowId = insertedRow.id
+    updatedRow = insertedRow
+  }
+
   return NextResponse.json({
     ok: true,
-    transactionId: data.transaction_id ?? null,
-    status: data.status,
+    transactionId: updatedRow.transaction_id ?? null,
+    status: updatedRow.status,
+    feeRowId,
   })
 }

@@ -45,6 +45,8 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
   const [actionState, setActionState] = useState<"idle" | "setup" | "fee" | "success">("idle")
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [faucetState, setFaucetState] = useState<"idle" | "sending" | "done">("idle")
+  const [faucetMessage, setFaucetMessage] = useState<string | null>(null)
 
   const canPayFee = Boolean(data?.wallet && data?.balance?.tokenId)
   const feeAmount = data?.feeAmount ?? 0
@@ -202,6 +204,8 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
         userToken: result.userToken,
       })
 
+      transactionId = confirmResult.transactionId ?? transactionId ?? null
+
       // If the confirm endpoint returned a new challenge (old one expired), execute it
       if (confirmResult.newChallenge && confirmResult.challengeId && confirmResult.userToken && confirmResult.encryptionKey) {
         setMessage("Challenge expired. Creating new fee challenge...")
@@ -214,15 +218,16 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
         }
 
         const newSdkResult = await runChallenge(newResult)
-        transactionId = newSdkResult?.transactionId ?? null
+        transactionId = newSdkResult?.transactionId ?? confirmResult.transactionId ?? null
         challengeId = newResult.challengeId
 
-        // Confirm the new challenge
-        await confirmFeeTransaction({
+        const newConfirmResult = await confirmFeeTransaction({
           transactionId: transactionId ?? undefined,
           challengeId: challengeId ?? undefined,
           userToken: newResult.userToken,
         })
+
+        transactionId = newConfirmResult.transactionId ?? transactionId ?? null
       } else if (confirmResult.newChallenge) {
         setError("A new challenge was created but required data is missing. Please retry.")
         throw new Error("Incomplete new challenge response")
@@ -376,6 +381,38 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
               </Badge>
             ) : null}
           </div>
+          {walletReady && (
+            <div className="mt-3">
+              <h3 className="text-sm font-medium mb-2">Circle testnet faucet</h3>
+              <p className="text-sm text-muted-foreground mb-2">Request the default Circle testnet USDC drip for your wallet.</p>
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={async () => {
+                    setFaucetState("sending")
+                    setFaucetMessage(null)
+                    setError(null)
+                    try {
+                      const res = await fetch("/api/faucet", { method: "POST", credentials: "include" })
+                      const body = await res.json()
+                      if (!res.ok) throw new Error(body.error ?? "Faucet request failed")
+                      setFaucetMessage(body.message ?? (body.simulated ? "Circle faucet unavailable; local fallback used" : "Circle testnet USDC request submitted"))
+                      setFaucetState("done")
+                      await mutate()
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Faucet failed")
+                      setFaucetState("idle")
+                    }
+                  }}
+                  disabled={faucetState === "sending"}
+                >
+                  {faucetState === "sending" ? (<><Loader2 className="w-4 h-4 animate-spin" /> Requesting...</>) : ("Get test USDC")}
+                </Button>
+                {faucetState === "done" && faucetMessage ? (
+                  <Badge variant="secondary" className="h-9 px-3 rounded-full">{faucetMessage}</Badge>
+                ) : null}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>

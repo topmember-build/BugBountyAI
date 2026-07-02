@@ -232,7 +232,7 @@ export async function POST(request: NextRequest) {
 
   if (selectedAgentIds.length === 0 && selectedAgentTypes.length === 0) {
     if (feeTransactionId) {
-      const { data: feeRow } = await supabase
+      const { data: feeRow } = await admin
         .from("audit_fees")
         .select("id, amount, status, source_address")
         .eq("user_id", user.id)
@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { data: feeRow, error: feeError } = await supabase
+  const { data: feeRow, error: feeError } = await admin
     .from("audit_fees")
     .select("id, amount, status, escrow_fee, net_amount, source_address")
     .eq("user_id", user.id)
@@ -290,7 +290,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (feeRow.status !== "settled") {
-      await supabase
+      await admin
         .from("audit_fees")
         .update({ status: "settled" })
         .eq("user_id", user.id)

@@ -17,6 +17,7 @@ const APP_ID = process.env.CIRCLE_APP_ID ?? null
 
 export async function GET() {
   const supabase = await createClient()
+  const admin = createAdminClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -77,7 +78,7 @@ export async function GET() {
       }
     }
 
-    const { data: feeAuthorizedRows } = await supabase
+    const { data: feeAuthorizedRows } = await admin
       .from("audit_fees")
       .select("transaction_id")
       .eq("user_id", user.id)
@@ -86,7 +87,7 @@ export async function GET() {
       .order("created_at", { ascending: false })
       .limit(1)
 
-    const { data: feePendingRows } = await supabase
+    const { data: feePendingRows } = await admin
       .from("audit_fees")
       .select("challenge_id")
       .eq("user_id", user.id)
@@ -99,7 +100,7 @@ export async function GET() {
     const pendingChallengeId = feePendingRows?.[0]?.challenge_id ?? null
 
     if (feeTransactionId) {
-      const { data: consumedFee } = await supabase
+      const { data: consumedFee } = await admin
         .from("audit_fees")
         .select("id")
         .eq("user_id", user.id)
@@ -129,7 +130,7 @@ export async function GET() {
 
         feeTransactionId = challenge?.correlationIds?.[0] ?? null
         if (feeTransactionId) {
-          const { error: updateError } = await supabase
+          const { error: updateError } = await admin
             .from("audit_fees")
             .update({ transaction_id: feeTransactionId, status: "authorized" })
             .eq("user_id", user.id)
