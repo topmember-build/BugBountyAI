@@ -1,6 +1,10 @@
 import "server-only"
 
+import { randomUUID } from "node:crypto"
+import { isAxiosError } from "axios"
 import { initiateUserControlledWalletsClient } from "@circle-fin/user-controlled-wallets"
+import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets"
+import { fundUserWallet } from "@/lib/circle"
 
 /**
  * Circle USER-controlled wallet integration.
@@ -15,21 +19,66 @@ import { initiateUserControlledWalletsClient } from "@circle-fin/user-controlled
  */
 
 const CIRCLE_API_KEY = process.env.CIRCLE_API_KEY
+const CIRCLE_ENTITY_SECRET = process.env.CIRCLE_ENTITY_SECRET
 
-// Wallets are created on the same chain as the treasury wallet. Arc testnet.
-export const USER_WALLET_BLOCKCHAIN = (process.env.CIRCLE_BLOCKCHAIN ?? "ARC-TESTNET") as never
+const VALID_TESTNET_BLOCKCHAINS = [
+  "ETH-SEPOLIA",
+  "AVAX-FUJI",
+  "MATIC-AMOY",
+  "SOL-DEVNET",
+  "ARB-SEPOLIA",
+  "UNI-SEPOLIA",
+  "BASE-SEPOLIA",
+  "OP-SEPOLIA",
+  "APTOS-TESTNET",
+  "ARC-TESTNET",
+  "MONAD-TESTNET",
+] as const
+
+type ValidTestnetBlockchain = (typeof VALID_TESTNET_BLOCKCHAINS)[number]
+
+function normalizeBlockchain(value?: string): string | null {
+  if (!value) return null
+  return value.trim().toUpperCase().replace(/_/g, "-")
+}
+
+function getValidatedBlockchain(): ValidTestnetBlockchain {
+  const candidate = normalizeBlockchain(process.env.CIRCLE_BLOCKCHAIN ?? "ARC-TESTNET")
+  if (!candidate || !VALID_TESTNET_BLOCKCHAINS.includes(candidate as ValidTestnetBlockchain)) {
+    throw new Error(
+      `Invalid CIRCLE_BLOCKCHAIN value '${process.env.CIRCLE_BLOCKCHAIN}'. Expected one of: ${VALID_TESTNET_BLOCKCHAINS.join(", ")}`,
+    )
+  }
+  return candidate as ValidTestnetBlockchain
+}
+
+export const USER_WALLET_BLOCKCHAIN = getValidatedBlockchain() as never
 
 export function isCircleUserConfigured(): boolean {
   return Boolean(CIRCLE_API_KEY && process.env.CIRCLE_APP_ID)
 }
 
 let userClient: ReturnType<typeof initiateUserControlledWalletsClient> | null = null
+let developerClient: ReturnType<typeof initiateDeveloperControlledWalletsClient> | null = null
 
 function getUserClient() {
   if (!userClient) {
     userClient = initiateUserControlledWalletsClient({ apiKey: CIRCLE_API_KEY! })
   }
   return userClient
+}
+
+function getDeveloperClient() {
+  if (!developerClient) {
+    if (!CIRCLE_API_KEY || !CIRCLE_ENTITY_SECRET) {
+      throw new Error("Circle faucet credentials are not configured")
+    }
+    developerClient = initiateDeveloperControlledWalletsClient({
+      apiKey: CIRCLE_API_KEY,
+      entitySecret: CIRCLE_ENTITY_SECRET,
+    })
+  }
+  return developerClient
 }
 
 /** Register a user with Circle. Idempotent: ignores "already exists" errors. */
@@ -94,6 +143,85 @@ export interface UserWalletInfo {
   address: string
   blockchain: string
   state: string
+}
+
+export interface FaucetRequestResult {
+  requested: boolean
+  simulated: boolean
+  reason?: string
+  error?: string
+}
+
+function getFaucetErrorMessage(err: unknown): string {
+  if (isAxiosError(err)) {
+    const apiMessage = err.response?.data?.message || err.response?.data?.error || err.message
+    return typeof apiMessage === "string" ? apiMessage : JSON.stringify(apiMessage)
+  }
+  if (err instanceof Error) return err.message
+  if (typeof err === "string") return err
+  return `${err}`
+}
+
+function getFaucetErrorMessageFromPayload(payload: unknown): string {
+  if (typeof payload === "string") return payload
+  if (payload && typeof payload === "object") {
+    const candidate = payload as Record<string, unknown>
+    const message = candidate.message ?? candidate.error ?? candidate.detail ?? candidate.errorMessage
+    if (typeof message === "string") return message
+    try {
+      return JSON.stringify(payload)
+    } catch {
+      return `${payload}`
+    }
+  }
+  return `${payload}`
+}
+
+/** Fund a user's wallet directly from the configured Circle developer-controlled wallet.
+ * This replaces the public Circle faucet endpoint for this app.
+ */
+export async function requestCircleTestnetUsdcFaucet(address: string, blockchainOverride?: string): Promise<FaucetRequestResult> {
+  const normalizedBlockchain = normalizeBlockchain(blockchainOverride ?? USER_WALLET_BLOCKCHAIN)
+  const resolvedBlockchain = normalizedBlockchain && VALID_TESTNET_BLOCKCHAINS.includes(normalizedBlockchain as ValidTestnetBlockchain)
+    ? normalizedBlockchain
+    : USER_WALLET_BLOCKCHAIN
+
+  if (!CIRCLE_API_KEY || !CIRCLE_ENTITY_SECRET || !process.env.CIRCLE_WALLET_ID) {
+    return {
+      requested: false,
+      simulated: true,
+      reason: "Circle developer wallet funding is not fully configured on the server.",
+      error: "Faucet cannot send USDC because the developer wallet credentials are incomplete.",
+    }
+  }
+
+  try {
+    const requestedAmount = Number(process.env.FAUCET_AMOUNT_USDC ?? "1")
+    const amount = Number.isFinite(requestedAmount) ? Math.min(Math.max(requestedAmount, 0), 1) : 1
+    const fallback = await fundUserWallet({
+      destinationAddress: address,
+      amount,
+      idempotencyKey: randomUUID(),
+    })
+
+    if (fallback.status === "failed") {
+      return {
+        requested: false,
+        simulated: true,
+        reason: fallback.error ?? "The Circle developer wallet transfer failed.",
+        error: fallback.error ?? "Developer wallet transfer failed.",
+      }
+    }
+
+    return {
+      requested: true,
+      simulated: false,
+      reason: `Sent ${amount} USDC from your Circle developer wallet to ${address.slice(0, 8)}... using ${resolvedBlockchain}.`,
+    }
+  } catch (err) {
+    const message = getFaucetErrorMessage(err)
+    throw new Error(`Circle dev-wallet faucet request failed: ${message}`)
+  }
 }
 
 /** List the user's wallets (after setup completes). Returns the first one. */

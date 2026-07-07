@@ -1,5 +1,6 @@
 import "server-only"
 
+import { randomUUID } from "node:crypto"
 import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets"
 
 /**
@@ -55,14 +56,60 @@ async function resolveUsdcTokenId(): Promise<string | null> {
   if (cachedUsdcTokenId) return cachedUsdcTokenId
 
   const client = getCircleClient()
-  const res = await client.getWalletTokenBalance({ id: CIRCLE_WALLET_ID! })
-  const balances = res.data?.tokenBalances ?? []
-  const usdc = balances.find((b) => b.token?.symbol?.toUpperCase().includes("USDC"))
-  if (usdc?.token?.id) {
-    cachedUsdcTokenId = usdc.token.id
-    return cachedUsdcTokenId
+  try {
+    const res = await client.getWalletTokenBalance({ id: CIRCLE_WALLET_ID! })
+    const balances = res.data?.tokenBalances ?? []
+    console.log("[circle] Available token balances:", JSON.stringify(balances.map(b => ({ symbol: b.token?.symbol, id: b.token?.id, amount: b.amount })), null, 2))
+    const usdc = balances.find((b) => b.token?.symbol?.toUpperCase().includes("USDC"))
+    if (usdc?.token?.id) {
+      cachedUsdcTokenId = usdc.token.id
+      console.log("[circle] Resolved USDC token ID:", cachedUsdcTokenId)
+      return cachedUsdcTokenId
+    }
+    console.error("[circle] No USDC token found in wallet balances")
+    return null
+  } catch (err) {
+    console.error("[circle] Error resolving USDC token ID:", err instanceof Error ? err.message : err)
+    return null
   }
-  return null
+}
+
+function normalizeIdempotencyKey(value: string): string {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+    ? value
+    : randomUUID()
+}
+
+async function buildTransferPayload(params: {
+  destinationAddress: string
+  amount: number
+  idempotencyKey: string
+  tokenId: string
+}) {
+  const treasuryAddress = await getTreasuryAddress()
+  const blockchain = (process.env.CIRCLE_BLOCKCHAIN ?? "ARC-TESTNET").trim().toUpperCase().replace(/_/g, "-")
+
+  const payload: Record<string, unknown> = {
+    tokenId: params.tokenId,
+    destinationAddress: params.destinationAddress,
+    amount: [params.amount.toFixed(6)],
+    fee: {
+      type: "level" as const,
+      config: {
+        feeLevel: "MEDIUM" as const,
+      },
+    },
+    idempotencyKey: normalizeIdempotencyKey(params.idempotencyKey),
+  }
+
+  if (treasuryAddress) {
+    payload.walletAddress = treasuryAddress
+    payload.blockchain = blockchain
+  } else {
+    payload.walletId = CIRCLE_WALLET_ID!
+  }
+
+  return payload
 }
 
 /**
@@ -91,14 +138,15 @@ export async function settleReward(req: SettlementRequest): Promise<SettlementRe
       }
     }
 
-    const res = await client.createTransaction({
-      walletId: CIRCLE_WALLET_ID!,
-      tokenId,
+    const payload = await buildTransferPayload({
       destinationAddress: req.destinationAddress,
-      amount: [req.amount.toFixed(6)],
-      fee: { type: "level", config: { feeLevel: "MEDIUM" } },
+      amount: req.amount,
       idempotencyKey: req.idempotencyKey,
+      tokenId,
     })
+    console.log("[circle] settleReward calling createTransaction with payload:", JSON.stringify(payload, null, 2))
+
+    const res = await client.createTransaction(payload)
 
     const tx = res.data
     const state = tx?.state
@@ -166,24 +214,15 @@ export async function fundUserWallet(params: {
       return { status: "failed", externalId: null, simulated: false, error: "No USDC in treasury wallet to fund users." }
     }
     
-    const formattedAmount = params.amount.toFixed(6)
-    console.log("[circle] fundUserWallet preparing transaction", {
-      walletId: CIRCLE_WALLET_ID,
-      tokenId,
+    const payload = await buildTransferPayload({
       destinationAddress: params.destinationAddress,
       amount: params.amount,
-      formattedAmount,
       idempotencyKey: params.idempotencyKey,
-    })
-    
-    const res = await client.createTransaction({
-      walletId: CIRCLE_WALLET_ID!,
       tokenId,
-      destinationAddress: params.destinationAddress,
-      amount: [formattedAmount],
-      fee: { type: "level", config: { feeLevel: "MEDIUM" } },
-      idempotencyKey: params.idempotencyKey,
     })
+    console.log("[circle] fundUserWallet calling createTransaction with payload:", JSON.stringify(payload, null, 2))
+
+    const res = await client.createTransaction(payload)
     console.log("[circle] fundUserWallet createTransaction response", {
       txId: res.data?.id,
       txState: res.data?.state,
