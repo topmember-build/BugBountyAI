@@ -5,7 +5,7 @@
   "packageManager": "npm@11",
   "scripts": {
     "build": "next build",
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "lint": "eslint .",
     "start": "next start"
   },

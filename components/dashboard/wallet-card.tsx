@@ -47,6 +47,13 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
   const [error, setError] = useState<string | null>(null)
   const [faucetState, setFaucetState] = useState<"idle" | "sending" | "done">("idle")
   const [faucetMessage, setFaucetMessage] = useState<string | null>(null)
+  const [preparedFeeChallenge, setPreparedFeeChallenge] = useState<{
+    appId: string
+    userToken: string
+    encryptionKey: string
+    challengeId: string
+    transactionId?: string | null
+  } | null>(null)
 
   const canPayFee = Boolean(data?.wallet && data?.balance?.tokenId)
   const feeAmount = data?.feeAmount ?? 0
@@ -143,6 +150,27 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
     }
   }
 
+  const prepareFeeChallenge = async () => {
+    if (!data?.configured || !canPayFee) return
+
+    try {
+      const res = await fetch("/api/wallet/fee", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error ?? "Unable to prepare fee challenge")
+      if (!result.challengeId || !result.userToken || !result.encryptionKey) {
+        throw new Error("Fee challenge preparation returned incomplete Circle data")
+      }
+      setPreparedFeeChallenge(result)
+    } catch (err) {
+      console.warn("Failed to prepare fee challenge:", err)
+      setPreparedFeeChallenge(null)
+    }
+  }
+
   const handleFeePayment = async () => {
     if (!data?.configured) {
       setError("Circle wallet integration is not configured.")
@@ -158,16 +186,14 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
     setMessage(null)
     setActionState("fee")
 
+    let result: any = null
     try {
-      let transactionId: string | null = null
-      let challengeId: string | null = null
-      let result: any
-
-      if (data?.pendingChallengeId) {
+      if (preparedFeeChallenge) {
+        result = preparedFeeChallenge
+      } else if (data?.pendingChallengeId) {
         if (!data.userToken || !data.encryptionKey) {
           throw new Error("Unable to resume pending fee challenge.")
         }
-
         result = {
           appId: data.appId,
           userToken: data.userToken,
@@ -189,14 +215,20 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
         sdkResult = await runChallenge(result)
       } catch (err) {
         if (data?.pendingChallengeId && result?.challengeId) {
-          console.warn("Existing pending challenge execution failed, attempting confirm for recovery", err)
+          console.warn("Existing pending challenge execution failed, requesting a fresh challenge", err)
+          await prepareFeeChallenge()
+          if (!preparedFeeChallenge) {
+            throw new Error("Unable to refresh fee challenge after pending challenge failure")
+          }
+          result = preparedFeeChallenge
+          sdkResult = await runChallenge(result)
         } else {
           throw err
         }
       }
 
-      transactionId = sdkResult?.transactionId ?? result.transactionId ?? null
-      challengeId = result.challengeId
+      let transactionId: string | null = sdkResult?.transactionId ?? result.transactionId ?? null
+      let challengeId: string | null = result.challengeId
 
       const confirmResult = await confirmFeeTransaction({
         transactionId: transactionId ?? undefined,
@@ -206,10 +238,9 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
 
       transactionId = confirmResult.transactionId ?? transactionId ?? null
 
-      // If the confirm endpoint returned a new challenge (old one expired), execute it
       if (confirmResult.newChallenge && confirmResult.challengeId && confirmResult.userToken && confirmResult.encryptionKey) {
         setMessage("Challenge expired. Creating new fee challenge...")
-        
+
         const newResult = {
           appId: confirmResult.appId || data.appId,
           userToken: confirmResult.userToken,
@@ -259,6 +290,12 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
       handleWalletSetup()
     }
   }, [autoSetup, walletReady, data?.configured, actionState])
+
+  useEffect(() => {
+    if (canPayFee && actionState === "idle") {
+      prepareFeeChallenge()
+    }
+  }, [canPayFee, actionState])
 
   useEffect(() => {
     if (
@@ -392,9 +429,22 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
                     setFaucetMessage(null)
                     setError(null)
                     try {
-                      const res = await fetch("/api/faucet", { method: "POST", credentials: "include" })
+                      const res = await fetch("/api/faucet", {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          address: data?.wallet?.address ?? null,
+                          network: data?.wallet?.blockchain ?? "ARC-TESTNET",
+                        }),
+                      })
                       const body = await res.json()
-                      if (!res.ok) throw new Error(body.error ?? "Faucet request failed")
+                      if (!res.ok) throw new Error(body.error ?? body.message ?? "Faucet request failed")
+                      if (body.status === "unavailable") {
+                        setFaucetMessage(body.message ?? "Faucet is unavailable right now.")
+                        setFaucetState("idle")
+                        return
+                      }
                       setFaucetMessage(body.message ?? (body.simulated ? "Circle faucet unavailable; local fallback used" : "Circle testnet USDC request submitted"))
                       setFaucetState("done")
                       await mutate()
@@ -410,6 +460,17 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
                 {faucetState === "done" && faucetMessage ? (
                   <Badge variant="secondary" className="h-9 px-3 rounded-full">{faucetMessage}</Badge>
                 ) : null}
+              </div>
+              <div className="mt-3 text-sm text-muted-foreground">
+                If the backend faucet fails, try the Circle faucet directly:
+                <a
+                  className="ml-1 text-primary underline"
+                  href={`https://faucet.circle.com/?network=${encodeURIComponent(data.wallet.blockchain ?? "ARC-TESTNET")}&address=${encodeURIComponent(data.wallet.address)}&currency=USDC`}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  Open Circle faucet
+                </a>
               </div>
             </div>
           )}

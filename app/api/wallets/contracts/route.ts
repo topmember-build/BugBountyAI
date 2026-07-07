@@ -7,7 +7,12 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!user) {
+    const url = new URL(request.url)
+    const tryOnchain = url.searchParams.get("onchain") === "1"
+    const network = process.env.ETH_NETWORK || "homestead"
+    return NextResponse.json({ contracts: [], network, ...(tryOnchain ? {} : {}) }, { status: 200 })
+  }
 
   const { data, error } = await supabase
     .from("agent_contracts")

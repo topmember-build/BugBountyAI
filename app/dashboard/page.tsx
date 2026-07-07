@@ -1,5 +1,8 @@
 "use client"
 
+import { AiGuideCard } from "@/components/dashboard/ai-guide-card"
+import { AssistantFab } from "@/components/dashboard/assistant-fab"
+import { AssistantPanel } from "@/components/dashboard/assistant-panel"
 import { AuditSubmitForm } from "@/components/dashboard/audit-submit-form"
 import { AuditsList } from "@/components/dashboard/audits-list"
 import { LeaderboardPanel } from "@/components/dashboard/leaderboard-panel"
@@ -38,6 +41,12 @@ export default function DashboardPage() {
           Point the agent swarm at a repository. Findings are scored and rewards are settled in USDC.
         </p>
       </div>
+
+      <AiGuideCard />
+
+      <AssistantPanel />
+
+      <AssistantFab />
 
       <WalletCard
         onFeeAuthorized={handleFeeAuthorized}

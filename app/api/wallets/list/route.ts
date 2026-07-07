@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return NextResponse.json({ wallets: [] }, { status: 401 })
+  if (!user) return NextResponse.json({ wallets: [] }, { status: 200 })
 
   const { data, error } = await supabase.from("user_wallets").select("address, created_at").eq("user_id", user.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
