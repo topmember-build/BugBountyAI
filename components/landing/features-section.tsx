@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ShieldAlert, GitBranch, Package, FileCode2 } from "lucide-react";
+import { useLanguage } from "@/lib/language-context";
 
 const agents = [
   {
@@ -93,6 +94,7 @@ function AgentCard({ agent, index }: { agent: typeof agents[0]; index: number })
 }
 
 export function AgentsSection() {
+  const { t } = useLanguage();
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
 
@@ -115,20 +117,19 @@ export function AgentsSection() {
         <div className="mb-16 lg:mb-20 max-w-3xl">
           <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
             <span className="w-8 h-px bg-primary/40" />
-            Audit Swarm
+            {t("audit_swarm")}
           </span>
           <h2
             className={`text-4xl lg:text-6xl font-display tracking-tight transition-all duration-700 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            Specialized agents.
+            {t("features_agents_section_title")}
             <br />
-            <span className="text-muted-foreground">Competing to find what others miss.</span>
+            <span className="text-muted-foreground">{t("features_agents_section_sub")}</span>
           </h2>
           <p className="mt-6 text-lg text-muted-foreground leading-relaxed">
-            Instead of a single scanner, multiple autonomous AI agents independently
-            analyze your code. Each one is built for a different class of vulnerability.
+            {t("features_agents_section_sub")}
           </p>
         </div>
 

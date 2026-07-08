@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Bot, Loader2, Sparkles } from "lucide-react"
+import { useLanguage } from "@/lib/language-context"
 import type { Agent, AgentType } from "@/lib/types"
 
 const agentTypes: Array<{ value: AgentType; label: string; hint: string }> = [
@@ -34,6 +35,7 @@ const fetcher = async (url: string) => {
 }
 
 export function AgentRegistryPanel() {
+  const { t } = useLanguage()
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
   const [agentType, setAgentType] = useState<AgentType>("security")
@@ -172,17 +174,17 @@ export function AgentRegistryPanel() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Bot className="h-5 w-5" /> Register a trained agent
+            <Bot className="h-5 w-5" /> {t("register_trained_agent")}
           </CardTitle>
           <CardDescription>
-            Give your agent a structured profile, prompt instructions, and focus areas so it can compete in future bug bounty audits.
+            {t("register_agent_desc")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="agent-name">Agent name</Label>
+                <Label htmlFor="agent-name">{t("agent_name")}</Label>
                 <Input
                   id="agent-name"
                   value={name}
@@ -192,7 +194,7 @@ export function AgentRegistryPanel() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="agent-slug">Slug</Label>
+                <Label htmlFor="agent-slug">{t("slug")}</Label>
                 <Input
                   id="agent-slug"
                   value={slug}
@@ -256,20 +258,20 @@ export function AgentRegistryPanel() {
             </div>
 
             <div className="space-y-2">
-              <Label>Wallet (optional)</Label>
+              <Label>{t("wallet")} (optional)</Label>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   placeholder="0x..."
                   value={walletAddress ?? ""}
                   onChange={(e) => { setWalletAddress(e.target.value); setWalletVerified(false) }}
                 />
-                <Button type="button" onClick={handleConnectWallet}>Connect wallet</Button>
+                <Button type="button" onClick={handleConnectWallet}>{t("connect_wallet")}</Button>
                 <Button
                   type="button"
                   onClick={handleVerifyWallet}
                   disabled={!walletAddress || walletVerified || verifyingWallet}
                 >
-                  {verifyingWallet ? "Verifying..." : walletVerified ? "Verified" : "Verify"}
+                  {verifyingWallet ? t("verifying") : walletVerified ? t("verified") : t("verify")}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
@@ -277,10 +279,10 @@ export function AgentRegistryPanel() {
               </p>
 
               {walletsLoading ? (
-                <div className="text-sm text-muted-foreground mt-2">Loading linked wallets...</div>
+                <div className="text-sm text-muted-foreground mt-2">{t("loading_linked_wallets")}</div>
               ) : walletsData?.wallets?.length ? (
                 <div className="mt-2 space-y-3">
-                  <div className="text-sm text-muted-foreground">Previously verified earning wallets</div>
+                  <div className="text-sm text-muted-foreground">{t("previously_verified_earning_wallets")}</div>
                   <div className="grid gap-2">
                     {walletsData.wallets.map((w) => (
                       <div key={w.address} className="flex flex-col gap-2 rounded-md border p-3 text-sm">
@@ -294,7 +296,7 @@ export function AgentRegistryPanel() {
                               setWalletVerified(true)
                             }}
                           >
-                            {w.address === walletAddress ? "Selected" : "Use"}
+                            {w.address === walletAddress ? t("selected") : t("use")}
                           </Button>
                         </div>
                         <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
@@ -319,7 +321,7 @@ export function AgentRegistryPanel() {
                               }
                             }}
                           >
-                            Unlink
+                            {t("unlink")}
                           </Button>
                         </div>
                       </div>
@@ -329,7 +331,7 @@ export function AgentRegistryPanel() {
               ) : null}
 
               {contractsLoading ? (
-                <div className="text-sm text-muted-foreground mt-2">Loading minted contracts...</div>
+                <div className="text-sm text-muted-foreground mt-2">{t("loading_minted_contracts")}</div>
               ) : contractsData?.contracts?.length ? (
                 <div className="mt-3 space-y-2">
                   <div className="text-sm font-medium">My minted agent contracts</div>
@@ -369,7 +371,7 @@ export function AgentRegistryPanel() {
                               }
                             }}
                           >
-                            Remove
+                            {t("remove")}
                           </Button>
                         </div>
                       </div>
@@ -411,7 +413,7 @@ export function AgentRegistryPanel() {
                     }
                   }}
                 >
-                  {savingContract ? "Saving..." : "Import"}
+                  {savingContract ? t("saving") : t("import")}
                 </Button>
 
                 <Button
@@ -455,7 +457,7 @@ export function AgentRegistryPanel() {
                   }}
                   disabled={minting}
                 >
-                  {minting ? "Minting..." : "Mint Agent"}
+                  {minting ? t("minting") : t("mint_agent")}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">If you already minted an agent contract, paste it here to link it to your account.</p>
@@ -466,11 +468,11 @@ export function AgentRegistryPanel() {
             <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving agent
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("saving_agent")}
                 </>
               ) : (
                 <>
-                  <Sparkles className="mr-2 h-4 w-4" /> Register agent
+                  <Sparkles className="mr-2 h-4 w-4" /> {t("register_agent")}
                 </>
               )}
             </Button>
@@ -480,19 +482,19 @@ export function AgentRegistryPanel() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Your registered agents</CardTitle>
+          <CardTitle>{t("your_registered_agents")}</CardTitle>
           <CardDescription>
-            These agents are available to participate in future audits and to be surfaced in the leaderboard.
+            {t("agents_available_desc")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading agents...
+              <Loader2 className="h-4 w-4 animate-spin" /> {t("loading_agents")}
             </div>
           ) : agents.length === 0 ? (
             <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-              No agents registered yet. Add one to start shaping your bug bounty swarm.
+              {t("no_agents_registered")}
             </div>
           ) : (
             <div className="space-y-3">

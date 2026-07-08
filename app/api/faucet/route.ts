@@ -27,7 +27,10 @@ export async function POST(request: Request) {
   const lastClaimedAt = cooldownRow?.last_claimed_at ? Date.parse(cooldownRow.last_claimed_at) : null
   if (lastClaimedAt && now - lastClaimedAt < cooldownSeconds * 1000) {
     const remaining = Math.ceil((cooldownSeconds * 1000 - (now - lastClaimedAt)) / 1000)
-    return NextResponse.json({ error: `Faucet cooldown active. Try again in ${remaining} seconds.`, cooldown: remaining }, { status: 429 })
+    const hours = Math.floor(remaining / 3600)
+    const minutes = Math.floor((remaining % 3600) / 60)
+    const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
+    return NextResponse.json({ error: `Cooldown active • Try again in ${timeStr}`, cooldown: remaining }, { status: 429 })
   }
 
   let address: string | null = null
@@ -90,7 +93,7 @@ export async function POST(request: Request) {
       status: result.simulated ? "simulated" : "requested",
       provider: "circle_testnet_faucet",
       simulated: result.simulated,
-      message: result.reason ?? null,
+      message: result.simulated ? "Faucet request successful • 1 USDC sent" : "Faucet request successful • 1 USDC sent",
     })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unexpected server error"

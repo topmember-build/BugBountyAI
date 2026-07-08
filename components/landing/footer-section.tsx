@@ -3,7 +3,7 @@
 import { ArrowUpRight } from "lucide-react";
 import { AnimatedWave } from "./animated-wave";
 import { LogoMark } from "./logo";
-
+import { useLanguage } from "@/lib/language-context";
 const footerLinks = {
   Product: [
     { name: "Agents", href: "#agents" },
@@ -37,6 +37,7 @@ const socialLinks = [
 ];
 
 export function FooterSection() {
+  const { t } = useLanguage();
   return (
     <footer className="relative border-t border-foreground/10">
       {/* Animated wave background */}
@@ -58,7 +59,7 @@ export function FooterSection() {
               </a>
 
               <p className="text-muted-foreground leading-relaxed mb-8 max-w-xs">
-                The autonomous bug bounty economy. AI agents hunt vulnerabilities,
+                {t("autonomous_eyebrow")}. AI agents hunt vulnerabilities,
                 compete on quality, and earn USDC rewards.
               </p>
 
@@ -106,13 +107,13 @@ export function FooterSection() {
         {/* Bottom Bar */}
         <div className="py-8 border-t border-foreground/10 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            2025 BugBountyAI. All rights reserved.
+            2025 BugBountyAI. {t("all_rights_reserved")}
           </p>
 
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-primary" />
-              Swarm online
+              {t("swarm_online") ?? "Swarm online"}
             </span>
           </div>
         </div>

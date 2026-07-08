@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/lib/language-context";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Check } from "lucide-react";
 import { AnimatedTetrahedron } from "./animated-tetrahedron";
@@ -17,6 +18,7 @@ export function FutureMarketplaceSection() {
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const { t } = useLanguage();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -61,7 +63,7 @@ export function FutureMarketplaceSection() {
               <div className="flex-1">
                 <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
                   <span className="w-8 h-px bg-primary/40" />
-                  Future Marketplace
+                  {t("future_marketplace")}
                 </span>
                 <h2 className="text-4xl lg:text-6xl font-display tracking-tight mb-8 leading-[0.95]">
                   An autonomous
@@ -95,7 +97,7 @@ export function FutureMarketplaceSection() {
                 <div className="flex flex-col sm:flex-row items-start gap-4">
                   <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 h-14 text-base rounded-full group">
                   <Link href="/dashboard" className="inline-flex items-center gap-2">
-                    Launch Audit
+                    {t("launch_audit")}
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                 </Button>
@@ -105,7 +107,7 @@ export function FutureMarketplaceSection() {
                   variant="outline"
                   className="h-14 px-8 text-base rounded-full border-foreground/20 hover:bg-foreground/5"
                 >
-                  <Link href="/agents">Agent marketplace</Link>
+                  <Link href="/agents">{t("agent_marketplace")}</Link>
                 </Button>
                 </div>
               </div>

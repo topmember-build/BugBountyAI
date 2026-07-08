@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, type ChangeEvent, type DragEvent } from "r
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ShieldAlert, GitBranch, Package, FileCode2, Github, Upload, Check } from "lucide-react";
+import { useLanguage } from "@/lib/language-context";
 
 const selectableAgents = [
   { id: "security", name: "Security Agent", icon: ShieldAlert, task: "Scanning authentication" },
@@ -21,12 +22,14 @@ export function AuditSwarmSection() {
   const [uploadPath, setUploadPath] = useState<string | null>(null);
   const [uploadFilename, setUploadFilename] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const { t } = useLanguage();
   const [fileError, setFileError] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
+
 
   const uploadArchive = async (file: File) => {
     setIsUploading(true);
@@ -162,7 +165,7 @@ export function AuditSwarmSection() {
         <div className="mb-16 max-w-3xl">
           <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
             <span className="w-8 h-px bg-primary/40" />
-            Launch an audit
+            {t("launch_an_audit")}
           </span>
           <h2 className="text-4xl lg:text-6xl font-display tracking-tight">
             Select your swarm.
@@ -180,11 +183,11 @@ export function AuditSwarmSection() {
           >
             <div className="bg-card border border-border rounded-xl p-6 lg:p-8">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="font-display text-xl">Choose agents</h3>
+                <h3 className="font-display text-xl">{t("choose_agents")}</h3>
                 {selected.length > 0 && (
                   <span className="inline-flex items-center gap-2 text-xs font-mono px-3 py-1.5 rounded-full bg-accent text-accent-foreground">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    Audit Swarm Ready
+                    {t("audit_swarm_ready")}
                   </span>
                 )}
               </div>
@@ -225,7 +228,7 @@ export function AuditSwarmSection() {
               </div>
 
               {/* Upload */}
-              <h3 className="font-display text-xl mb-4">Add your code</h3>
+              <h3 className="font-display text-xl mb-4">{t("add_your_code")}</h3>
               <div
                 className={`border-2 border-dashed rounded-lg p-8 text-center mb-4 transition-colors ${isDragActive ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
                 onDragEnter={onDragEnter}
@@ -235,10 +238,10 @@ export function AuditSwarmSection() {
               >
                 <Upload className="w-6 h-6 mx-auto text-muted-foreground mb-3" />
                 <p className="text-sm text-muted-foreground mb-4">
-                  Drag &amp; drop a ZIP or source files
+                  {t("drag_drop")}
                 </p>
                 <Button type="button" onClick={openFilePicker} variant="outline" className="rounded-full px-5 py-2">
-                  Select file
+                  {t("select_file")}
                 </Button>
                 <input
                   ref={fileInputRef}
@@ -254,7 +257,7 @@ export function AuditSwarmSection() {
                 <div className="text-sm text-foreground mb-4">{uploadStatus}</div>
               ) : uploadedFiles.length > 0 ? (
                 <div className="mb-4 rounded-xl border border-border bg-background p-4 text-left text-sm">
-                  <div className="font-medium mb-2">Selected file{uploadedFiles.length > 1 ? "s" : ""}:</div>
+                  <div className="font-medium mb-2">{uploadedFiles.length > 1 ? t("selected_files") : t("selected_file")}:</div>
                   <ul className="space-y-1">
                     {uploadedFiles.map((file) => (
                       <li key={file.name} className="truncate">
@@ -267,10 +270,10 @@ export function AuditSwarmSection() {
               <div className="flex items-center gap-2 rounded-lg border border-border px-4 py-3 mb-6">
                 <Github className="w-4 h-4 text-muted-foreground shrink-0" />
                 <span className="text-sm font-mono text-muted-foreground truncate">
-                  Paste your repository URL
+                  {t("paste_repo_url")}
                 </span>
                 <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-mono text-primary shrink-0">
-                  <Check className="w-3 h-3" /> Connected
+                  <Check className="w-3 h-3" /> {t("connected")}
                 </span>
               </div>
 
@@ -279,7 +282,7 @@ export function AuditSwarmSection() {
                 disabled={selected.length === 0 || isUploading}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 rounded-full"
               >
-                {isUploading ? "Uploading audit archive..." : `Launch Audit with ${selected.length} agent${selected.length === 1 ? "" : "s"}`}
+                {isUploading ? t("uploading_audit_archive") : `${t("launch_audit")} with ${selected.length} agent${selected.length === 1 ? "" : "s"}`}
               </Button>
             </div>
           </div>

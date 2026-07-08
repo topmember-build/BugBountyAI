@@ -1,10 +1,9 @@
 "use client";
 
-"use client"
-
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { ShieldAlert, GitBranch, Package, FileCode2, Trophy } from "lucide-react";
+import { useLanguage } from "@/lib/language-context";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
@@ -33,6 +32,7 @@ const iconMap: Record<string, typeof ShieldAlert> = {
 }
 
 export function LeaderboardSection() {
+  const { t } = useLanguage();
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const { data, isLoading } = useSWR<{ agents: Agent[] }>("/api/agents", fetcher, {
@@ -64,19 +64,19 @@ export function LeaderboardSection() {
       <div className="max-w-[1400px] mx-auto px-6 lg:px-12">
         <div className="flex items-center gap-4 mb-12">
           <span className="font-mono text-xs tracking-widest text-muted-foreground uppercase">
-            Agent Leaderboard
+            {t("agent_leaderboard")}
           </span>
           <div className="flex-1 h-px bg-border" />
           <span className="font-mono text-xs text-primary flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            Updated live
+            {t("updated_live")}
           </span>
         </div>
 
         <h2 className="font-display text-4xl md:text-6xl tracking-tight text-foreground mb-12 max-w-3xl">
-          The best agents
+          {t("the_best_agents")}
           <br />
-          <span className="text-muted-foreground">earn the most.</span>
+          <span className="text-muted-foreground">{t("earn_the_most")}</span>
         </h2>
 
         {/* Table */}
@@ -84,10 +84,10 @@ export function LeaderboardSection() {
           {/* Header row */}
           <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-4 border-b border-border text-xs font-mono uppercase tracking-wider text-muted-foreground">
             <div className="col-span-1">#</div>
-            <div className="col-span-4">Agent</div>
-            <div className="col-span-2 text-right">Findings</div>
-            <div className="col-span-2 text-right">USDC Earned</div>
-            <div className="col-span-2 text-right">Rep</div>
+            <div className="col-span-4">{t("table_agent")}</div>
+            <div className="col-span-2 text-right">{t("table_findings")}</div>
+            <div className="col-span-2 text-right">{t("table_usdc_earned")}</div>
+            <div className="col-span-2 text-right">{t("table_rep")}</div>
           </div>
 
           {isLoading ? (

@@ -6,13 +6,16 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { LogoMark } from "./logo";
+import { LanguageSelector } from "@/components/language-selector";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useLanguage } from "@/lib/language-context";
 
 const navLinks = [
-  { name: "Agents", href: "#agents" },
-  { name: "How it works", href: "#how-it-works" },
-  { name: "Rewards", href: "#rewards" },
-  { name: "Leaderboard", href: "#leaderboard" },
-  { name: "Marketplace", href: "/agents" },
+  { key: "nav_agents", href: "#agents" },
+  { key: "nav_how_it_works", href: "#how-it-works" },
+  { key: "nav_rewards", href: "#rewards" },
+  { key: "nav_leaderboard", href: "#leaderboard" },
+  { key: "nav_marketplace", href: "/agents" },
 ];
 
 export function Navigation() {
@@ -20,6 +23,7 @@ export function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const supabase = createClient();
@@ -113,16 +117,16 @@ export function Navigation() {
             const commonClass =
               "text-sm text-foreground/70 hover:text-foreground transition-colors duration-300 relative group"
             return link.href.startsWith("/") ? (
-              <Link key={link.name} href={link.href} className={commonClass}>
-                {link.name}
+              <Link key={link.key} href={link.href} className={commonClass}>
+                {t(link.key)}
               </Link>
             ) : (
               <a
-                key={link.name}
+                key={link.key}
                 href={link.href}
                 className={commonClass}
               >
-                {link.name}
+                {t(link.key)}
                 <span className="absolute -bottom-1 left-0 w-0 h-px bg-foreground transition-all duration-300 group-hover:w-full" />
               </a>
             )
@@ -136,15 +140,17 @@ export function Navigation() {
                 href={isAuthenticated ? "/dashboard" : "/auth/login"}
                 className={`text-foreground/70 hover:text-foreground transition-all duration-500 ${isScrolled ? "text-xs" : "text-sm"}`}
               >
-                {isAuthenticated ? "Dashboard" : "Sign in"}
+                {isAuthenticated ? t("dashboard") : t("sign_in")}
               </Link>
             )}
+            <LanguageSelector />
+            <ThemeToggle />
             <Button
               asChild
               size="sm"
               className={`bg-primary hover:bg-primary/90 text-primary-foreground rounded-full transition-all duration-500 ${isScrolled ? "px-4 h-8 text-xs" : "px-6"}`}
             >
-              <Link href="/dashboard">Launch Audit</Link>
+              <Link href="/dashboard">{t("launch_audit")}</Link>
             </Button>
           </div>
 
@@ -178,7 +184,7 @@ export function Navigation() {
           <div className="flex-1 flex flex-col justify-center gap-8">
             {navLinks.map((link, i) => (
               <a
-                key={link.name}
+                key={link.key}
                 href={link.href}
                 onClick={() => setIsMobileMenuOpen(false)}
                 className={`text-5xl font-display text-foreground hover:text-muted-foreground transition-all duration-500 ${
@@ -188,7 +194,7 @@ export function Navigation() {
                 }`}
                 style={{ transitionDelay: isMobileMenuOpen ? `${i * 75}ms` : "0ms" }}
               >
-                {link.name}
+                {t(link.key)}
               </a>
             ))}
           </div>
@@ -207,8 +213,8 @@ export function Navigation() {
               className="flex-1 rounded-full h-14 text-base"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              <Link href={isAuthenticated ? "/dashboard" : "/auth/login"}>
-                {isAuthenticated ? "Dashboard" : "Sign in"}
+                <Link href={isAuthenticated ? "/dashboard" : "/auth/login"}>
+                {isAuthenticated ? t("dashboard") : t("sign_in")}
               </Link>
             </Button>
             <Button 
@@ -216,8 +222,12 @@ export function Navigation() {
               className="flex-1 bg-primary text-primary-foreground rounded-full h-14 text-base"
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              <Link href="/dashboard">Launch Audit</Link>
+              <Link href="/dashboard">{t("launch_audit")}</Link>
             </Button>
+            <div className="flex items-center gap-2">
+              <LanguageSelector />
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </div>

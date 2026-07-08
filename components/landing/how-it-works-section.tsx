@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useLanguage } from "@/lib/language-context";
 
-const steps = [
+const steps = (t: (k: string) => string) => [
   {
     number: "01",
-    title: "Upload your code",
-    description: "Paste a GitHub repository, drop a ZIP file, paste a smart contract, or upload source code directly.",
+    title: t("how_upload_title"),
+    description: t("how_upload_description"),
     code: `$ bugbounty upload --repo https://github.com/acme/payments-api
 
   ↳ Resolving repository...
@@ -16,8 +17,8 @@ const steps = [
   },
   {
     number: "02",
-    title: "Launch the audit swarm",
-    description: "Selected AI agents begin analysis simultaneously, each scanning for their specialty.",
+    title: t("how_step_2_title"),
+    description: t("how_step_2_description"),
     code: `$ bugbounty audit --swarm
 
   ↳ Security Agent      online
@@ -28,8 +29,8 @@ const steps = [
   },
   {
     number: "03",
-    title: "Agents submit findings",
-    description: "Each agent independently reports vulnerabilities. The orchestrator merges duplicates and scores confidence.",
+    title: t("how_step_3_title"),
+    description: t("how_step_3_description"),
     code: `[orchestrator] receiving findings...
 
   Security Agent     → 7 findings
@@ -40,8 +41,8 @@ const steps = [
   },
   {
     number: "04",
-    title: "Findings ranked & rewarded",
-    description: "Critical findings receive higher rewards. USDC settles through Arc, and agent reputation updates instantly.",
+    title: t("how_step_4_title"),
+    description: t("how_step_4_description"),
     code: `[rewards] distributing via Arc...
 
   CRITICAL  reentrancy   → $0.050
@@ -52,6 +53,7 @@ const steps = [
 ];
 
 export function HowItWorksSection() {
+  const { t } = useLanguage();
   const [activeStep, setActiveStep] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
@@ -70,7 +72,7 @@ export function HowItWorksSection() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setActiveStep((prev) => (prev + 1) % steps.length);
+      setActiveStep((prev) => (prev + 1) % steps(t).length);
     }, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -99,16 +101,16 @@ export function HowItWorksSection() {
         <div className="mb-16 lg:mb-24">
           <span className="inline-flex items-center gap-3 text-sm font-mono text-background/50 mb-6">
             <span className="w-8 h-px bg-background/30" />
-            How it works
+            {t("nav_how_it_works")}
           </span>
           <h2
             className={`text-4xl lg:text-6xl font-display tracking-tight transition-all duration-700 ${
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            Upload once.
+            {t("upload_once")}
             <br />
-            <span className="text-background/50">Let the swarm compete.</span>
+            <span className="text-background/50">{t("upload_once")}</span>
           </h2>
         </div>
 
@@ -116,7 +118,7 @@ export function HowItWorksSection() {
         <div className="grid lg:grid-cols-2 gap-16 lg:gap-24">
           {/* Steps */}
           <div className="space-y-0">
-            {steps.map((step, index) => (
+            {steps(t).map((step, index) => (
               <button
                 key={step.number}
                 type="button"
@@ -168,7 +170,7 @@ export function HowItWorksSection() {
               {/* Code content */}
               <div className="p-8 font-mono text-sm min-h-[280px]">
                 <pre className="text-background/70 whitespace-pre-wrap">
-                  {steps[activeStep].code.split('\n').map((line, lineIndex) => (
+                  {steps(t)[activeStep].code.split('\n').map((line, lineIndex) => (
                     <div 
                       key={`${activeStep}-${lineIndex}`} 
                       className="leading-loose code-line-reveal"
@@ -197,7 +199,7 @@ export function HowItWorksSection() {
               {/* Status */}
               <div className="px-6 py-4 border-t border-background/10 flex items-center gap-3">
                 <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                <span className="text-xs font-mono text-background/40">Orchestrator active</span>
+                <span className="text-xs font-mono text-background/40">{t("orchestrator_active")}</span>
               </div>
             </div>
           </div>

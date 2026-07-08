@@ -2,17 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/lib/language-context";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { AnimatedSphere } from "./animated-sphere";
 import { useMetrics } from "@/hooks/use-metrics";
 
-const words = ["Hunt Bugs", "Earn USDC", "Build Trust", "Compete"];
+const words = ["hero_word_hunt_bugs", "hero_word_earn_usdc", "hero_word_build_trust", "hero_word_compete"];
 
 export function HeroSection() {
   const [isVisible, setIsVisible] = useState(false);
   const [wordIndex, setWordIndex] = useState(0);
   const { metrics } = useMetrics();
+  const { t } = useLanguage();
 
   useEffect(() => {
     setIsVisible(true);
@@ -67,7 +69,7 @@ export function HeroSection() {
         >
           <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground">
             <span className="w-8 h-px bg-primary/40" />
-            The autonomous bug bounty economy
+            {t("autonomous_eyebrow")}
           </span>
         </div>
         
@@ -85,7 +87,7 @@ export function HeroSection() {
                   key={wordIndex}
                   className="inline-flex text-primary"
                 >
-                  {words[wordIndex].split("").map((char, i) => (
+                  {t(words[wordIndex]).split("").map((char, i) => (
                     <span
                       key={`${wordIndex}-${i}`}
                       className="inline-block animate-char-in"
@@ -110,9 +112,7 @@ export function HeroSection() {
               isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
-            Deploy autonomous security agents that compete to discover
-            vulnerabilities, build reputation, and receive instant stablecoin
-            rewards through Circle Agent Stack and Arc settlement.
+            {t("hero_description")}
           </p>
           
           {/* CTAs */}
@@ -123,7 +123,7 @@ export function HeroSection() {
           >
             <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 h-14 text-base rounded-full group">
               <Link href="/dashboard" className="inline-flex items-center gap-2">
-                Launch Audit
+                {t("launch_audit")}
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </Link>
             </Button>
@@ -132,7 +132,7 @@ export function HeroSection() {
               variant="outline" 
               className="h-14 px-8 text-base rounded-full border-foreground/20 hover:bg-foreground/5"
             >
-              View Documentation
+              {t("view_documentation")}
             </Button>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Wallet } from "lucide-react"
 import { W3SSdk } from "@circle-fin/w3s-pw-web-sdk"
+import { useLanguage } from "@/lib/language-context"
 
 const fetcher = (url: string) =>
   fetch(url, { credentials: "include" }).then((res) => res.json())
@@ -41,6 +42,8 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
   const { data, isLoading, mutate } = useSWR<WalletStatus>("/api/wallet", fetcher, {
     refreshInterval: 15000,
   })
+
+  const { t } = useLanguage()
 
   const [actionState, setActionState] = useState<"idle" | "setup" | "fee" | "success">("idle")
   const [message, setMessage] = useState<string | null>(null)
@@ -328,9 +331,9 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
     <section className="border border-border rounded-xl bg-card p-6 mb-6">
       <div className="flex items-center justify-between gap-4 mb-4">
         <div>
-          <h2 className="text-lg font-semibold">Wallet & audit fee</h2>
+          <h2 className="text-lg font-semibold">{t("wallet_title")}</h2>
           <p className="text-sm text-muted-foreground">
-            Set up your Circle wallet and authorize the audit fee before scanning code.
+            {t("wallet_subtitle")}
           </p>
         </div>
         <Wallet className="w-6 h-6 text-primary" />
@@ -344,16 +347,16 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
       ) : (
         <div className="grid gap-4">
           <div className="grid gap-2 md:grid-cols-3 md:items-center">
-            <span className="text-sm text-muted-foreground">Wallet status</span>
+            <span className="text-sm text-muted-foreground">{t("wallet_status")}</span>
             <div className="md:col-span-2">
               <Badge variant="outline" className={walletReady ? "border-primary text-primary" : "border-muted text-muted-foreground"}>
-                {walletReady ? data?.status ?? "active" : "not ready"}
+                {walletReady ? (data?.status ?? t("wallet_active")) : t("wallet_not_ready")}
               </Badge>
             </div>
           </div>
 
           <div className="grid gap-2 md:grid-cols-3 md:items-center">
-            <span className="text-sm text-muted-foreground">USDC balance</span>
+            <span className="text-sm text-muted-foreground">{t("usdc_balance")}</span>
             <div className="md:col-span-2 text-sm">
               {walletReady ? `$${Number(balanceAmount).toFixed(2)} USDC` : "–"}
             </div>
@@ -361,13 +364,13 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
 
           {data?.wallet ? (
             <div className="grid gap-2 md:grid-cols-3 md:items-center">
-              <span className="text-sm text-muted-foreground">Wallet address</span>
+              <span className="text-sm text-muted-foreground">{t("wallet_address")}</span>
               <div className="md:col-span-2 text-sm break-all">{data.wallet.address}</div>
             </div>
           ) : null}
 
           <div className="grid gap-2 md:grid-cols-3 md:items-center">
-            <span className="text-sm text-muted-foreground">Audit fee</span>
+            <span className="text-sm text-muted-foreground">{t("audit_fee")}</span>
             <div className="md:col-span-2 text-sm">${feeAmount.toFixed(2)} USDC</div>
           </div>
 
@@ -381,9 +384,9 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
                 disabled={actionState !== "idle" || !data?.configured}
               >
                 {actionState === "setup" ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Setting up wallet...</>
+                  <><Loader2 className="w-4 h-4 animate-spin" /> {t("setup_wallet_loading")}</>
                 ) : (
-                  "Set up wallet"
+                  t("setup_wallet")
                 )}
               </Button>
             ) : (
@@ -392,36 +395,36 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
                 disabled={actionState !== "idle" || !canPayFee}
               >
                 {actionState === "fee" ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Authorizing fee...</>
+                  <><Loader2 className="w-4 h-4 animate-spin" /> {t("requesting")}</>
                 ) : feeTransactionId ? (
-                  "Fee authorized"
+                  t("fee_authorized")
                 ) : feePending ? (
-                  "Resume fee authorization"
+                  t("resume_fee")
                 ) : feeConsumed ? (
-                  "Authorize a new audit fee"
+                  t("authorize_new_fee")
                 ) : (
-                  "Authorize audit fee"
+                  t("authorize_fee")
                 )}
               </Button>
             )}
             {feeTransactionId ? (
               <Badge variant="secondary" className="h-9 px-3 rounded-full">
-                Fee authorized
+                {t("fee_authorized")}
               </Badge>
             ) : feePending ? (
               <Badge variant="secondary" className="h-9 px-3 rounded-full">
-                Pending fee challenge
+                {t("pending_fee")}
               </Badge>
             ) : feeConsumed ? (
               <Badge variant="outline" className="h-9 px-3 rounded-full border-amber-500 text-amber-600">
-                New fee required
+                {t("new_fee_required")}
               </Badge>
             ) : null}
           </div>
           {walletReady && (
             <div className="mt-3">
-              <h3 className="text-sm font-medium mb-2">Circle testnet faucet</h3>
-              <p className="text-sm text-muted-foreground mb-2">Request the default Circle testnet USDC drip for your wallet.</p>
+              <h3 className="text-sm font-medium mb-2">{t("circle_testnet_faucet")}</h3>
+              <p className="text-sm text-muted-foreground mb-2">{t("request_default_usdc")}</p>
               <div className="flex items-center gap-3">
                 <Button
                   onClick={async () => {
@@ -441,11 +444,11 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
                       const body = await res.json()
                       if (!res.ok) throw new Error(body.error ?? body.message ?? "Faucet request failed")
                       if (body.status === "unavailable") {
-                        setFaucetMessage(body.message ?? "Faucet is unavailable right now.")
+                        setFaucetMessage(t("faucet_unavailable"))
                         setFaucetState("idle")
                         return
                       }
-                      setFaucetMessage(body.message ?? (body.simulated ? "Circle faucet unavailable; local fallback used" : "Circle testnet USDC request submitted"))
+                      setFaucetMessage(body.message ?? (body.simulated ? t("faucet_request_success") : t("faucet_request_success")))
                       setFaucetState("done")
                       await mutate()
                     } catch (err) {
@@ -455,21 +458,21 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
                   }}
                   disabled={faucetState === "sending"}
                 >
-                  {faucetState === "sending" ? (<><Loader2 className="w-4 h-4 animate-spin" /> Requesting...</>) : ("Get test USDC")}
+                  {faucetState === "sending" ? (<><Loader2 className="w-4 h-4 animate-spin" /> {t("requesting")}</>) : (t("get_test_usdc"))}
                 </Button>
                 {faucetState === "done" && faucetMessage ? (
                   <Badge variant="secondary" className="h-9 px-3 rounded-full">{faucetMessage}</Badge>
                 ) : null}
               </div>
               <div className="mt-3 text-sm text-muted-foreground">
-                If the backend faucet fails, try the Circle faucet directly:
+                {t("request_more_faucet")}
                 <a
-                  className="ml-1 text-primary underline"
+                  className="ml-1 text-primary underline hover:text-primary/80 transition"
                   href={`https://faucet.circle.com/?network=${encodeURIComponent(data.wallet.blockchain ?? "ARC-TESTNET")}&address=${encodeURIComponent(data.wallet.address)}&currency=USDC`}
                   target="_blank"
                   rel="noreferrer noopener"
                 >
-                  Open Circle faucet
+                  {t("open_circle_faucet")}
                 </a>
               </div>
             </div>

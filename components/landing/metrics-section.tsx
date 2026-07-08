@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useMetrics } from "@/hooks/use-metrics";
+import { useLanguage } from "@/lib/language-context";
 
 function AnimatedCounter({ end, suffix = "", prefix = "" }: { end: number; suffix?: string; prefix?: string }) {
   const [count, setCount] = useState(0);
@@ -47,16 +48,17 @@ function AnimatedCounter({ end, suffix = "", prefix = "" }: { end: number; suffi
 }
 
 export function LiveMetricsSection() {
+  const { t } = useLanguage();
   const [time, setTime] = useState<Date | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const { metrics: live } = useMetrics();
 
   const metrics = [
-    { value: live?.auditsCompleted ?? 0, suffix: "", prefix: "", label: "Audits completed" },
-    { value: live?.findingsDiscovered ?? 0, suffix: "", prefix: "", label: "Findings discovered" },
-    { value: live?.usdcDistributed ?? 0, suffix: "", prefix: "$", label: "USDC distributed" },
-    { value: live?.activeAgents ?? 0, suffix: "", prefix: "", label: "Active agents" },
+    { value: live?.auditsCompleted ?? 0, suffix: "", prefix: "", label: t("audits_completed") },
+    { value: live?.findingsDiscovered ?? 0, suffix: "", prefix: "", label: t("findings_discovered") },
+    { value: live?.usdcDistributed ?? 0, suffix: "", prefix: "$", label: t("usdc_distributed") },
+    { value: live?.activeAgents ?? 0, suffix: "", prefix: "", label: t("active_agents") },
   ];
 
   useEffect(() => {
@@ -85,22 +87,20 @@ export function LiveMetricsSection() {
           <div>
             <span className="inline-flex items-center gap-3 text-sm font-mono text-muted-foreground mb-6">
               <span className="w-8 h-px bg-primary/40" />
-              Live metrics
+              {t("live_metrics")}
             </span>
             <h2
               className={`text-4xl lg:text-6xl font-display tracking-tight transition-all duration-700 ${
                 isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
               }`}
             >
-              An economy that
-              <br />
-              never sleeps.
+              {t("economy_never_sleeps")}
             </h2>
           </div>
           <div className="flex items-center gap-4 font-mono text-sm text-muted-foreground">
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              Live
+              {t("live")}
             </span>
             <span className="text-foreground/30">|</span>
             <span>{time ? time.toLocaleTimeString() : "--:--:--"}</span>
