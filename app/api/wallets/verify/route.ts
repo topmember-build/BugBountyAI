@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 const { verifyMessage } = require("ethers")
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
 async function markNonceUsed(supabase: any, address: string, nonce: string) {
@@ -20,8 +21,9 @@ export async function POST(request: Request) {
 
   try {
     const supabase = await createClient()
+    const admin = createAdminClient()
     // Find nonce row
-    const { data: rows } = await supabase.from("wallet_nonces").select("nonce, message, used").eq("address", address).order("created_at", { ascending: false }).limit(1)
+    const { data: rows } = await admin.from("wallet_nonces").select("nonce, message, used").eq("address", address).order("created_at", { ascending: false }).limit(1)
     const row = rows?.[0]
     if (!row) return NextResponse.json({ error: "nonce not found" }, { status: 400 })
     if (row.used) return NextResponse.json({ error: "nonce already used" }, { status: 400 })
@@ -32,12 +34,12 @@ export async function POST(request: Request) {
     }
 
     // mark used and persist user_wallets if authenticated
-    await markNonceUsed(supabase, address, row.nonce)
+    await markNonceUsed(admin, address, row.nonce)
 
     const { data: userRes } = await supabase.auth.getUser()
     const user = userRes.user
     if (user) {
-      await supabase.from("user_wallets").upsert({ user_id: user.id, address })
+      await admin.from("user_wallets").upsert({ user_id: user.id, address })
     }
 
     return NextResponse.json({ ok: true })
