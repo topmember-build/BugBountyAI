@@ -190,6 +190,13 @@ export async function POST(request: NextRequest) {
   ) {
     if (!feeRowToRefund) return
 
+    console.log("[refund] Initiating audit fee refund", {
+      reason,
+      feeId: feeRowToRefund.id,
+      amount: feeRowToRefund.amount,
+      sourceAddress: feeRowToRefund.source_address,
+    })
+
     const destinationAddress = await resolveRefundDestinationAddress(feeRowToRefund)
     if (!destinationAddress) {
       console.warn("Audit fee refund could not resolve a destination wallet. Marking the fee as refunded for this failed/no-audit flow.", {
@@ -741,6 +748,12 @@ export async function POST(request: NextRequest) {
     if (audit?.id) {
       await supabase.from("audits").update({ status: "failed" }).eq("id", audit.id)
     }
+    console.warn("[audit] Audit failed during processing; attempting refund of user funds", {
+      auditId: audit?.id,
+      feeId: feeRow?.id,
+      feeTransactionId,
+      error: err instanceof Error ? err.message : err,
+    })
     // Also pass the fee row id so refundFee -> refundContractFee can derive the correct auditId
     await refundAuditFee(feeRow, "audit_failed")
     return NextResponse.json(
