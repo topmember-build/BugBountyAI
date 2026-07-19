@@ -25,7 +25,7 @@ export default function AgentsPage() {
   const [onchainDetails, setOnchainDetails] = useState<any>(null)
   const [onchainLoading, setOnchainLoading] = useState(false)
   const { data, error, isLoading } = useSWR<{ agents: Agent[] }>("/api/agents", fetcher, {
-    const [onchainLoading, setOnchainLoading] = useState(false)
+    refreshInterval: 20000,
   })
   const agents = data?.agents ?? []
   const explorerBase = process.env.NEXT_PUBLIC_AGENT_IDENTITY_EXPLORER ?? null
@@ -180,6 +180,10 @@ export default function AgentsPage() {
                                 <span className="font-mono text-xs break-all">{onchainDetails?.onchain?.wallet ?? "n/a"}</span>
                               </div>
                               <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Contract</span>
+                                <span className="font-mono text-xs break-all">{selectedAgent?.onchain_registry_address ?? "n/a"}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
                                 <span className="text-muted-foreground">Reputation</span>
                                 <span className="font-medium">{onchainDetails?.onchain?.reputation ?? "0"}</span>
                               </div>
@@ -200,25 +204,14 @@ export default function AgentsPage() {
                               </div>
                               {explorerBase && selectedAgent?.onchain_registry_address ? (
                                 <div className="mt-2">
-                                  {selectedAgent?.onchain_agent_id ? (
-                                    <a
-                                      href={`${explorerBase.replace(/\/$/,"")}/token/${selectedAgent.onchain_registry_address}?a=${selectedAgent.onchain_agent_id}`}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-sm text-primary underline"
-                                    >
-                                      View on explorer
-                                    </a>
-                                  ) : (
-                                    <a
-                                      href={`${explorerBase.replace(/\/$/,"")}/address/${selectedAgent.onchain_registry_address}`}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-sm text-primary underline"
-                                    >
-                                      View registry on explorer
-                                    </a>
-                                  )}
+                                  <a
+                                    href={`${explorerBase.replace(/\/$/,"")}/address/${selectedAgent.onchain_registry_address}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-sm text-primary underline"
+                                  >
+                                    View contract on explorer
+                                  </a>
                                 </div>
                               ) : null}
                             </div>
