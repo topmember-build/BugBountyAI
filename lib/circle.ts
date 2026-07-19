@@ -32,6 +32,8 @@ export interface SettlementRequest {
   destinationAddress: string
   /** Idempotency key so retries don't double-pay. */
   idempotencyKey: string
+  /** Audit UUID used to derive the on-chain escrow auditId. */
+  auditUuid?: string
   chain?: string
 }
 
@@ -127,7 +129,7 @@ export async function settleReward(req: SettlementRequest): Promise<SettlementRe
   // Smart contract path (production)
   if (isEscrowConfigured()) {
     const result: EscrowSettlementResult = await releaseContractReward({
-      auditUuid: req.idempotencyKey, // audit UUID used as the on-chain auditId key
+      auditUuid: req.auditUuid ?? req.idempotencyKey,
       destinationAddress: req.destinationAddress,
       amount: req.amount,
       idempotencyKey: req.idempotencyKey,
@@ -145,6 +147,7 @@ export async function settleReward(req: SettlementRequest): Promise<SettlementRe
     const tokenId = await resolveUsdcTokenId()
 
     if (!tokenId) {
+      console.error("[circle] settleReward failed because USDC token could not be resolved")
       return {
         status: "failed",
         txHash: null,
@@ -164,12 +167,13 @@ export async function settleReward(req: SettlementRequest): Promise<SettlementRe
     console.log("[circle] settleReward calling createTransaction with payload:", JSON.stringify(payload, null, 2))
 
     const res = await client.createTransaction(payload)
+    console.log("[circle] settleReward response", JSON.stringify(res?.data ?? res, null, 2))
 
     const tx = res.data
     const state = tx?.state
     return {
       status: state === "COMPLETE" ? "settled" : "settling",
-      txHash: null,
+      txHash: tx?.txHash ?? null,
       externalId: tx?.id ?? null,
       provider: "circle_arc",
       simulated: false,

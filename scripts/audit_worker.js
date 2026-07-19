@@ -19,20 +19,47 @@ async function processOne() {
   if (!queued) return false
 
   const audit = queued
-  console.log('[worker] Processing audit', audit.id)
+  console.log('[worker] Attempting to claim audit', audit.id)
 
-  // mark scanning
-  await admin.from('audits').update({ status: 'scanning', started_at: new Date().toISOString() }).eq('id', audit.id)
+  // attempt to atomically claim the queued audit — only succeed if status is still 'queued'
+  const { data: claimed, error: claimErr } = await admin
+    .from('audits')
+    .update({ status: 'scanning', started_at: new Date().toISOString() })
+    .eq('id', audit.id)
+    .eq('status', 'queued')
+    .select()
+    .maybeSingle()
+
+  if (claimErr) {
+    console.error('[worker] Error claiming audit', audit.id, claimErr)
+    return false
+  }
+  if (!claimed) {
+    // somebody else claimed it first — skip
+    console.log('[worker] Audit already claimed by another worker, skipping', audit.id)
+    return true
+  }
+
+  // use the claimed row going forward
+  const claimedAudit = claimed
+  console.log('[worker] Processing claimed audit', claimedAudit.id)
 
   try {
-    // Re-fetch fee row for this user and any transaction matching recent rows
-    const { data: feeRow } = await admin.from('audit_fees').select('*').eq('user_id', audit.user_id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    const { data: feeRow } = await admin
+      .from('audit_fees')
+      .select('*')
+      .eq('user_id', claimedAudit.user_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
-    // Minimal agent mapping: use all agent types; real workers might read saved payload
-    const selectedAgentRows = []
+    if (!feeRow) {
+      throw new Error('No audit fee row found for user')
+    }
+
     const { data: agents } = await admin.from('agents').select('id, slug, agent_type, wallet_address, onchain_agent_id, onchain_registry_address')
     const agentByType = new Map()
-    for (const a of (agents||[])) {
+    for (const a of (agents || [])) {
       if (!a.agent_type || agentByType.has(a.agent_type)) continue
       agentByType.set(a.agent_type, {
         id: a.id,
@@ -42,55 +69,162 @@ async function processOne() {
       })
     }
 
+    if (feeRow.status !== 'settled') {
+      console.warn('[worker] Fee row not yet settled, delaying audit', { auditId: claimedAudit.id, feeRowStatus: feeRow.status })
+      await admin.from('audits').update({ status: 'queued' }).eq('id', claimedAudit.id)
+      return false
+    }
+
+    if (feeRow.source_address) {
+      const depositResult = await notifyContractDeposit({
+        auditUuid: feeRow.id,
+        depositor: feeRow.source_address,
+        amount: Number(feeRow.amount ?? 1),
+      })
+      if (depositResult.error) {
+        console.warn('[worker] notifyContractDeposit failed; continuing to attempt payment', depositResult)
+      }
+    }
+
     const analysis = await analyzeRepository({
-      repoUrl: audit.repo_url,
-      branch: audit.branch,
-      contractCode: audit.contract_code || undefined,
-      contractFilename: audit.contract_filename || undefined,
-      archiveFilename: audit.archive_filename || undefined,
+      repoUrl: claimedAudit.repo_url,
+      branch: claimedAudit.branch,
+      contractCode: claimedAudit.contract_code || undefined,
+      contractFilename: claimedAudit.contract_filename || undefined,
+      archiveFilename: claimedAudit.archive_filename || undefined,
       selectedAgents: [],
     })
 
-    // insert findings
     let totalReward = 0
-    const findingsToInsert = analysis.findings.map((f) => {
-      const reward = calculateReward(f.severity, f.confidence)
+    const findingsToInsert = []
+    const rewardMeta = []
+
+    for (const finding of analysis.findings) {
+      const reward = calculateReward(finding.severity, finding.confidence)
       totalReward += reward
-      return {
-        audit_id: audit.id,
-        user_id: audit.user_id,
-        agent_id: agentByType.get(f.agent_type)?.id ?? null,
-        title: f.title,
-        severity: f.severity,
-        confidence: f.confidence,
-        category: f.category,
-        file_path: f.file_path,
-        line_start: f.line_start || null,
-        line_end: f.line_end || null,
-        description: f.description,
-        recommendation: f.recommendation,
+      const agent = agentByType.get(finding.agent_type) ?? null
+      const destinationAddress = agent?.wallet_address ?? null
+
+      findingsToInsert.push({
+        audit_id: claimedAudit.id,
+        user_id: claimedAudit.user_id,
+        agent_id: agent?.id ?? null,
+        title: finding.title,
+        severity: finding.severity,
+        confidence: finding.confidence,
+        category: finding.category,
+        file_path: finding.file_path,
+        line_start: finding.line_start || null,
+        line_end: finding.line_end || null,
+        description: finding.description,
+        recommendation: finding.recommendation,
         reward_amount: reward,
         reward_status: 'pending',
-      }
-    })
+      })
+
+      rewardMeta.push({
+        agentId: agent?.id ?? null,
+        destinationAddress,
+        rewardAmount: reward,
+        registryAddress: agent?.onchain_registry_address ?? null,
+        severity: finding.severity,
+      })
+    }
 
     const { data: insertedFindings, error: findingsError } = await admin.from('findings').insert(findingsToInsert).select()
     if (findingsError) throw findingsError
 
-    // settle rewards similarly to the route logic
-    // For brevity implement simple refund of leftover and finalize
-    await admin.from('audits').update({ status: 'completed', findings_count: insertedFindings?.length ?? 0, total_reward: totalReward, completed_at: new Date().toISOString() }).eq('id', audit.id)
+    for (let idx = 0; idx < (insertedFindings?.length ?? 0); idx++) {
+      const finding = insertedFindings[idx]
+      const meta = rewardMeta[idx]
+      const rewardAmount = Number(finding.reward_amount ?? 0)
+      const agentId = meta.agentId
+      const destinationAddress = meta.destinationAddress
+      let rewardStatus = 'failed'
+      let provider = 'unknown'
+      let txHash = null
+      let externalId = null
+      let settledAt = null
 
-    console.log('[worker] Completed audit', audit.id)
+      if (destinationAddress && rewardAmount > 0) {
+        const settlement = await settleReward({
+          auditUuid: feeRow.id,
+          destinationAddress,
+          amount: rewardAmount,
+          idempotencyKey: `${feeRow.id}:${finding.id}`,
+        })
+
+        rewardStatus = settlement.status
+        provider = settlement.provider
+        txHash = settlement.txHash
+        externalId = settlement.externalId
+        if (settlement.status === 'settled') {
+          settledAt = new Date().toISOString()
+        }
+      } else {
+        console.warn('[worker] Missing destination wallet or reward amount for finding', {
+          findingId: finding.id,
+          agentId,
+          destinationAddress,
+          rewardAmount,
+        })
+      }
+
+      const { error: rewardError } = await admin.from('rewards').insert([
+        {
+          finding_id: finding.id,
+          user_id: claimedAudit.user_id,
+          agent_id: agentId,
+          amount: rewardAmount,
+          status: rewardStatus,
+          provider,
+          tx_hash: txHash,
+          external_id: externalId,
+          settled_at: settledAt,
+        },
+      ])
+      if (rewardError) throw rewardError
+
+      await admin.from('findings').update({ reward_status: rewardStatus }).eq('id', finding.id)
+
+      if (rewardStatus === 'settled' && agentId) {
+        await updateAgentReputation({
+          agentId,
+          registryAddress: meta.registryAddress ?? null,
+          delta: 0,
+        })
+        await admin.rpc('increment_agent_stats', {
+          p_agent_id: agentId,
+          p_earned: rewardAmount,
+          p_reputation: 0,
+        })
+      }
+    }
+
+    await admin
+      .from('audits')
+      .update({
+        status: 'completed',
+        findings_count: insertedFindings?.length ?? 0,
+        total_reward: totalReward,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', claimedAudit.id)
+
+    console.log('[worker] Completed audit', claimedAudit.id)
     return true
   } catch (err) {
     console.error('[worker] Failed to process audit', audit.id, err)
-    await admin.from('audits').update({ status: 'failed' }).eq('id', audit.id)
-    // attempt refund
     try {
-      const { data: feeRow } = await admin.from('audit_fees').select('id, amount, source_address').eq('user_id', audit.user_id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      const idToMark = (typeof claimedAudit !== 'undefined' && claimedAudit && claimedAudit.id) ? claimedAudit.id : audit.id
+      await admin.from('audits').update({ status: 'failed' }).eq('id', idToMark)
+    } catch (uErr) {
+      console.error('[worker] failed to mark audit as failed', uErr)
+    }
+    try {
+      const userIdForFee = (typeof claimedAudit !== 'undefined' && claimedAudit && claimedAudit.user_id) ? claimedAudit.user_id : audit.user_id
+      const { data: feeRow } = await admin.from('audit_fees').select('id, amount, source_address').eq('user_id', userIdForFee).order('created_at', { ascending: false }).limit(1).maybeSingle()
       if (feeRow) {
-        // call refundFee directly via lib/circle (may require environment credentials)
         await refundFee({ destinationAddress: feeRow.source_address || null, amount: Number(feeRow.amount || 1), idempotencyKey: feeRow.id })
         await admin.from('audit_fees').update({ status: 'refunded' }).eq('id', feeRow.id)
       }

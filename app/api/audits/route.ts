@@ -112,16 +112,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "fee_transaction_id is required" }, { status: 400 })
   }
 
-  const selectedAgentIds = Array.isArray(body.agent_ids)
-    ? body.agent_ids.filter((id): id is string => typeof id === "string")
-    : []
+  const selectedAgentIds = (() => {
+    const ids = body.agent_ids as string | Array<unknown> | undefined
+    if (typeof ids === "string") {
+      return ids
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id): id is string => id.length > 0)
+    }
+    if (Array.isArray(ids)) {
+      return ids
+        .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+        .map((id) => id.trim())
+    }
+    return []
+  })()
 
-  const selectedAgentTypes = Array.isArray(body.agents)
-    ? body.agents.filter(
-        (agent): agent is AgentType =>
-          ["security", "logic", "dependency", "smart_contract"].includes(agent),
+  const selectedAgentTypes = (() => {
+    const agents = body.agents as string | Array<unknown> | undefined
+    const validTypes: AgentType[] = ["security", "logic", "dependency", "smart_contract"]
+    if (typeof agents === "string") {
+      return agents
+        .split(",")
+        .map((agent) => agent.trim())
+        .filter((agent): agent is AgentType => validTypes.includes(agent as AgentType))
+    }
+    if (Array.isArray(agents)) {
+      return agents.filter(
+        (agent): agent is AgentType => typeof agent === "string" && validTypes.includes(agent as AgentType),
       )
-    : []
+    }
+    return []
+  })()
 
   async function updateFeeStatus(feeId: string, status: "refunded" | "refund_failed" | "used" | "settled") {
     // Preserve the original user `transaction_id` for auditing. Only update
@@ -339,6 +361,15 @@ export async function POST(request: NextRequest) {
     let isBridgeSettled = false
     let currentRefundExternalId = feeRow.refund_external_id
 
+    console.log("[audit] inline processing started", {
+      auditFeeId: feeRow.id,
+      userId: user.id,
+      repoUrl,
+      branch: body.branch?.trim() || "main",
+      selectedAgentIds: selectedAgentIds.length,
+      selectedAgentTypes: selectedAgentTypes.length,
+    })
+
     if (!currentRefundExternalId) {
       const treasuryAddress = await getTreasuryAddress()
       if (!treasuryAddress) {
@@ -356,6 +387,8 @@ export async function POST(request: NextRequest) {
         idempotencyKey: randomUUID(),
       })
 
+      console.log("[bridge] transferFromDeveloperWallet result", transferResult)
+
       if (transferResult.transactionId) {
         currentRefundExternalId = transferResult.transactionId
         await admin
@@ -364,17 +397,20 @@ export async function POST(request: NextRequest) {
           .eq("id", feeRow.id)
       } else {
         return NextResponse.json(
-          { error: `Failed to bridge fee to contract: ${transferResult.error ?? "unknown error"}` },
+          { error: `Failed to bridge fee to contract: ${transferResult.error ?? "unknown error"}`, bridgeStatus: "bridge_failed" },
           { status: 500 },
         )
       }
     }
 
     // Poll for the Dev -> Contract transfer to settle
+    let lastBridgeStatus: string | null = null
     if (currentRefundExternalId) {
       console.log("[bridge] Polling Dev -> Contract transfer status:", currentRefundExternalId)
       for (let attempt = 0; attempt < 8; attempt++) {
         const devStatus = await getTransactionStatus(currentRefundExternalId)
+        lastBridgeStatus = devStatus?.status ?? "unknown"
+        console.log("[bridge] Poll attempt", attempt + 1, { devStatus })
         if (devStatus && devStatus.status === "settled") {
           console.log("[bridge] Dev -> Contract transfer settled successfully!")
           isBridgeSettled = true
@@ -392,69 +428,324 @@ export async function POST(request: NextRequest) {
 
     if (!isBridgeSettled) {
       return NextResponse.json(
-        { error: "The fee bridging transaction is still pending or failed. Please wait a few seconds and try again." },
+        {
+          error: "The fee bridging transaction is still pending or failed. Please wait a few seconds and try again.",
+          bridgeStatus: lastBridgeStatus,
+          bridgeExternalId: currentRefundExternalId,
+        },
         { status: 202 }
       )
     }
 
-    // We validated the fee and bridged funds. Create an audit row and
-    // return immediately to avoid Vercel function timeouts. A background
-    // worker should pick up queued audits with status 'queued' and
-    // perform the heavy analysis / settlement work.
+    const branch = body.branch?.trim() || "main"
+
+    const selectedAgentsForAnalysis: Array<AgentType | { agent_type: AgentType; name: string; system_prompt?: string | null; focus_areas?: string | null }> = []
+
+    if (selectedAgentIds.length > 0) {
+      const validSelectedAgentIds = Array.from(new Set(selectedAgentIds.map((id) => id.trim()).filter(Boolean)))
+      if (validSelectedAgentIds.length === 0) {
+        return NextResponse.json(
+          { error: "Unable to load selected agents: invalid agent IDs provided." },
+          { status: 400 },
+        )
+      }
+
+      const isUuid = (value: string) =>
+        /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(value)
+
+      const uuidAgentIds = validSelectedAgentIds.filter(isUuid)
+      const slugAgentIds = validSelectedAgentIds
+        .filter((id) => !isUuid(id))
+        .flatMap((id) => (id.startsWith("default-") ? [id, id.replace(/^default-/, "")] : [id]))
+      const selectedAgentRows: Array<{ id: string; name: string; agent_type: AgentType; system_prompt?: string | null; focus_areas?: string | null }> = []
+
+      if (uuidAgentIds.length > 0) {
+        const { data: uuidRows, error: uuidError } = await admin
+          .from("agents")
+          .select("id, name, agent_type, system_prompt, focus_areas")
+          .in("id", uuidAgentIds)
+
+        if (uuidError) {
+          console.error("Failed to load selected agents by uuid", {
+            error: uuidError,
+            selectedAgentIds: uuidAgentIds,
+          })
+          return NextResponse.json(
+            {
+              error: "Unable to load selected agents",
+              details: uuidError.message ?? String(uuidError),
+            },
+            { status: 500 },
+          )
+        }
+
+        selectedAgentRows.push(...(uuidRows ?? []))
+      }
+
+      if (slugAgentIds.length > 0) {
+        const uniqueSlugIds = Array.from(new Set(slugAgentIds))
+        const { data: slugRows, error: slugError } = await admin
+          .from("agents")
+          .select("id, name, agent_type, system_prompt, focus_areas")
+          .in("slug", uniqueSlugIds)
+
+        if (slugError) {
+          console.error("Failed to load selected agents by slug", {
+            error: slugError,
+            selectedAgentIds: uniqueSlugIds,
+          })
+          return NextResponse.json(
+            {
+              error: "Unable to load selected agents",
+              details: slugError.message ?? String(slugError),
+            },
+            { status: 500 },
+          )
+        }
+
+        selectedAgentRows.push(...(slugRows ?? []))
+      }
+
+      if (selectedAgentRows.length === 0) {
+        return NextResponse.json(
+          { error: "Unable to resolve selected agents. Please choose valid registered agents." },
+          { status: 400 },
+        )
+      }
+
+      const seenAgentIds = new Set<string>()
+      for (const agentRow of selectedAgentRows) {
+        if (!agentRow.agent_type || seenAgentIds.has(agentRow.id)) continue
+        seenAgentIds.add(agentRow.id)
+        selectedAgentsForAnalysis.push({
+          agent_type: agentRow.agent_type,
+          name: agentRow.name,
+          system_prompt: agentRow.system_prompt ?? null,
+          focus_areas: agentRow.focus_areas ?? null,
+        })
+      }
+    } else if (selectedAgentTypes.length > 0) {
+      selectedAgentsForAnalysis.push(...selectedAgentTypes)
+    }
+
+    const auditPayload: Record<string, unknown> = {
+      user_id: user.id,
+      repo_url: repoUrl,
+      branch,
+      status: "scanning",
+    }
+
+    if (body.archive_path) {
+      auditPayload.archive_path = body.archive_path
+      auditPayload.archive_uploaded_at = new Date().toISOString()
+    }
+
+    if (body.archive_filename) {
+      auditPayload.archive_filename = body.archive_filename
+    }
+
+    if (body.contract_code) {
+      auditPayload.contract_code = body.contract_code
+    }
+
+    if (body.contract_filename) {
+      auditPayload.contract_filename = body.contract_filename
+    }
+
+    const { data: audit, error: auditError } = await supabase
+      .from("audits")
+      .insert(auditPayload)
+      .select()
+      .single()
+
+    if (auditError || !audit) {
+      await refundAuditFee(feeRow, "no_audit_created")
+      return NextResponse.json(
+        { error: auditError?.message ?? "Failed to create audit" },
+        { status: 500 },
+      )
+    }
+
+    try {
+      await admin.from("audit_fees").update({ status: "used" }).eq("id", feeRow.id)
+
+      if (feeRow.source_address) {
+        const depositResult = await notifyContractDeposit({
+          auditUuid: feeRow.id,
+          depositor: feeRow.source_address,
+          amount: Number(feeRow.amount ?? 1),
+        })
+        if (depositResult.error) {
+          console.warn("[escrow] audit route: notifyContractDeposit failed (non-fatal)", depositResult.error)
+        }
+      }
+
+      const analysis = await analyzeRepository({
+        repoUrl: repoUrl || undefined,
+        branch,
+        contractCode: body.contract_code || undefined,
+        contractFilename: body.contract_filename || undefined,
+        archiveFilename: body.archive_filename || undefined,
+        selectedAgents: selectedAgentsForAnalysis,
+      })
+
+      const { data: agents } = await admin
+        .from("agents")
+        .select("id, slug, agent_type, wallet_address, onchain_agent_id, onchain_registry_address")
+
+      const agentByType = new Map()
+      for (const a of (agents || [])) {
+        if (!a.agent_type || agentByType.has(a.agent_type)) continue
+        agentByType.set(a.agent_type, {
+          id: a.id,
+          wallet_address: a.wallet_address ?? null,
+          onchain_agent_id: a.onchain_agent_id ?? null,
+          onchain_registry_address: a.onchain_registry_address ?? null,
+        })
+      }
+
+      let totalReward = 0
+      const findingsToInsert = []
+      const rewardMeta = []
+
+      for (const finding of analysis.findings) {
+        const reward = calculateReward(finding.severity, finding.confidence)
+        totalReward += reward
+        const agent = agentByType.get(finding.agent_type) ?? null
+        const destinationAddress = agent?.wallet_address ?? null
+
+        findingsToInsert.push({
+          audit_id: audit.id,
+          user_id: user.id,
+          agent_id: agent?.id ?? null,
+          title: finding.title,
+          severity: finding.severity,
+          confidence: finding.confidence,
+          category: finding.category,
+          file_path: finding.file_path,
+          line_start: finding.line_start || null,
+          line_end: finding.line_end || null,
+          description: finding.description,
+          recommendation: finding.recommendation,
+          reward_amount: reward,
+          reward_status: "pending",
+        })
+
+        rewardMeta.push({
+          agentId: agent?.id ?? null,
+          destinationAddress,
+          rewardAmount: reward,
+          registryAddress: agent?.onchain_registry_address ?? null,
+          severity: finding.severity,
+        })
+      }
+
+      const { data: insertedFindings, error: findingsError } = await admin.from("findings").insert(findingsToInsert).select()
+      if (findingsError) throw findingsError
+
+      for (let idx = 0; idx < (insertedFindings?.length ?? 0); idx++) {
+        const finding = insertedFindings[idx]
+        const meta = rewardMeta[idx]
+        const rewardAmount = Number(finding.reward_amount ?? 0)
+        const agentId = meta.agentId
+        const destinationAddress = meta.destinationAddress
+        let rewardStatus: "pending" | "settling" | "settled" | "failed" = "failed"
+        let provider = "unknown"
+        let txHash = null
+        let externalId = null
+        let settledAt = null
+
+        if (destinationAddress && rewardAmount > 0) {
+          const settlement = await settleReward({
+            auditUuid: feeRow.id,
+            destinationAddress,
+            amount: rewardAmount,
+            idempotencyKey: `${feeRow.id}:${finding.id}`,
+          })
+
+          rewardStatus = settlement.status
+          provider = settlement.provider
+          txHash = settlement.txHash
+          externalId = settlement.externalId
+          if (settlement.status === "settled") {
+            settledAt = new Date().toISOString()
+          }
+        } else {
+          console.warn("[audit] Missing destination wallet or reward amount for finding", {
+            findingId: finding.id,
+            agentId,
+            destinationAddress,
+            rewardAmount,
+          })
+        }
+
+        const { error: rewardError } = await admin.from("rewards").insert([
+          {
+            finding_id: finding.id,
+            user_id: user.id,
+            agent_id: agentId,
+            amount: rewardAmount,
+            currency: "USDC",
+            status: rewardStatus,
+            provider,
+            tx_hash: txHash,
+            external_id: externalId,
+            settled_at: settledAt,
+          },
+        ])
+        if (rewardError) throw rewardError
+
+        await admin.from("findings").update({ reward_status: rewardStatus }).eq("id", finding.id)
+
+        if (rewardStatus === "settled" && agentId) {
+          await updateAgentReputation({
+            agentId,
+            registryAddress: meta.registryAddress ?? null,
+            delta: severityReputation(meta.severity),
+          })
+          await admin.rpc("increment_agent_stats", {
+            p_agent_id: agentId,
+            p_earned: rewardAmount,
+            p_reputation: severityReputation(meta.severity),
+          })
+        }
+      }
+
+      const { error: auditUpdateError } = await admin
+        .from("audits")
+        .update({
+          status: "completed",
+          findings_count: insertedFindings?.length ?? 0,
+          total_reward: totalReward,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", audit.id)
+
+      if (auditUpdateError) {
+        throw auditUpdateError
+      }
+
+      return NextResponse.json({ audit, findings: insertedFindings }, { status: 200 })
+    } catch (processingError) {
+      console.error("[audit] Inline processing failed", processingError)
+      try {
+        await admin.from("audits").update({ status: "failed" }).eq("id", audit.id)
+      } catch (updateErr) {
+        console.error("[audit] Failed to mark audit as failed", updateErr)
+      }
+
+      await refundAuditFee(feeRow, "audit_failed")
+      return NextResponse.json(
+        { error: processingError instanceof Error ? processingError.message : "Audit processing failed" },
+        { status: 500 },
+      )
+    }
   } catch (verifyError) {
     return NextResponse.json(
       { error: verifyError instanceof Error ? verifyError.message : "Unable to verify fee transaction" },
       { status: 502 },
     )
   }
-
-  const branch = body.branch?.trim() || "main"
-
-  // 1. Create the audit row (status: queued) and return 202 Accepted
-  const auditPayload: Record<string, unknown> = {
-    user_id: user.id,
-    repo_url: repoUrl,
-    branch,
-    status: "queued",
-  }
-
-  if (body.archive_path) {
-    auditPayload.archive_path = body.archive_path
-    auditPayload.archive_uploaded_at = new Date().toISOString()
-  }
-
-  if (body.archive_filename) {
-    auditPayload.archive_filename = body.archive_filename
-  }
-
-  const { data: audit, error: auditError } = await supabase
-    .from("audits")
-    .insert(auditPayload)
-    .select()
-    .single()
-
-  if (auditError || !audit) {
-    await refundAuditFee(feeRow, "no_audit_created")
-    return NextResponse.json(
-      { error: auditError?.message ?? "Failed to create audit" },
-      { status: 500 },
-    )
-  }
-
-  // Ensure storage bucket exists so workers can find any uploaded archives
-  try {
-    const { ensureStorageBucket } = await import("@/lib/supabase/init-storage")
-    await ensureStorageBucket()
-  } catch (e) {
-    console.warn("Could not ensure storage bucket for audit requests", e)
-  }
-
-  // Respond quickly so the HTTP function doesn't time out; worker will
-  // pick up audits with status 'queued' and perform the rest.
-  return NextResponse.json({ audit: audit, message: "Audit queued for processing" }, { status: 202 })
-  // Note: the heavy processing (analysis, inserting findings, settling
-  // rewards, finalizing the audit) has been moved to a background worker.
-
 }
 
 function severityReputation(severity: string): number {
