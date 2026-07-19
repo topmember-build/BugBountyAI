@@ -19,7 +19,7 @@ const supabase = createClient(
 
 const artifact = require(path.join(repoRoot, 'public/contracts/AgentIdentityRegistry.json'))
 
-const DEFAULT_AGENT_WALLET = ethers.computeAddress(ethers.id('bugbounty-agent-wallet'))
+const DEFAULT_AGENT_WALLET = '0x95D10619338707703475239EC03120A8266AF995'
 
 const defaultAgents = [
   {

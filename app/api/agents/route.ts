@@ -7,7 +7,7 @@ import { registerAgentIdentity } from "@/lib/agent-identity"
 const AGENT_TYPES: AgentType[] = ["security", "logic", "dependency", "smart_contract"]
 const AGENT_SELECT = "id, slug, name, agent_type, description, avatar_seed, wallet_address, focus_areas, system_prompt, findings_count, total_earned, reputation, created_at, onchain_agent_id, onchain_registry_address, onchain_identity_status"
 
-const DEFAULT_AGENT_WALLET = ethers.computeAddress(ethers.id("bugbounty-agent-wallet"))
+const DEFAULT_AGENT_WALLET = "0x95D10619338707703475239EC03120A8266AF995"
 
 const DEFAULT_AGENTS = [
   {
