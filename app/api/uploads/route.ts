@@ -16,7 +16,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  const formData = await request.formData()
+  let formData: FormData
+  try {
+    formData = await request.formData()
+  } catch (parseError) {
+    console.error("Failed to parse upload request form data", parseError)
+    return NextResponse.json(
+      { error: "Unable to parse uploaded archive. Please try again with a valid ZIP file." },
+      { status: 400 },
+    )
+  }
+
   const fileValue = formData.get("file")
 
   if (!fileValue || typeof fileValue === "string") {

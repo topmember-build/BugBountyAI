@@ -189,7 +189,13 @@ export function AuditSubmitForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
-      const data = await res.json()
+      const responseText = await res.text()
+      let data: any
+      try {
+        data = JSON.parse(responseText)
+      } catch {
+        throw new Error(responseText || "Audit failed")
+      }
       if (!res.ok) {
         const message = data.error ?? "Audit failed"
         if (message.toLowerCase().includes("refund") || message.toLowerCase().includes("refunded")) {
@@ -367,7 +373,13 @@ export function AuditSubmitForm({
                         method: "POST",
                         body: uploadFormData,
                       })
-                      const data = await res.json()
+                      const responseText = await res.text()
+                      let data: any
+                      try {
+                        data = JSON.parse(responseText)
+                      } catch {
+                        throw new Error(responseText || "Failed to upload folder archive")
+                      }
                       if (!res.ok) {
                         throw new Error(data.error ?? "Failed to upload folder archive")
                       }
