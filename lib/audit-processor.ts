@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { analyzeRepository } from "@/lib/analyzer"
 import { calculateReward } from "@/lib/rewards"
 import { refundFee, settleReward } from "@/lib/circle"
-import { notifyContractDeposit } from "@/lib/escrow-contract"
+import { notifyContractDeposit, settleContractAudit } from "@/lib/escrow-contract"
 import { updateAgentReputation } from "@/lib/agent-identity"
 import type { AgentType } from "@/lib/types"
 
@@ -290,6 +290,15 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
       }
     }
 
+    if (feeRow?.id) {
+      try {
+        await settleContractAudit({ auditUuid: feeRow.id })
+        await admin.from("audit_fees").update({ status: "settled" }).eq("id", feeRow.id)
+      } catch (settleErr) {
+        console.warn("[audit-processor] settleContractAudit warning", settleErr)
+      }
+    }
+
     const { data: finalAudit, error: finalErr } = await admin
       .from("audits")
       .update({
@@ -303,6 +312,7 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
       .single()
 
     if (finalErr) throw finalErr
+
 
     console.log("[audit-processor] Completed inline audit successfully", { auditId: claimedAudit.id })
     return { success: true, audit: finalAudit }
