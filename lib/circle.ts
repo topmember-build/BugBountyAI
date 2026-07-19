@@ -103,13 +103,8 @@ async function buildTransferPayload(params: {
     tokenId: params.tokenId,
     walletId: CIRCLE_WALLET_ID!,
     destinationAddress: params.destinationAddress,
-    amount: [params.amount.toFixed(6)],
-    fee: {
-      type: "level" as const,
-      config: {
-        feeLevel: "MEDIUM" as const,
-      },
-    },
+    amounts: [params.amount.toFixed(6)],
+    feeLevel: "MEDIUM" as const,
     idempotencyKey: normalizeIdempotencyKey(params.idempotencyKey),
   }
 

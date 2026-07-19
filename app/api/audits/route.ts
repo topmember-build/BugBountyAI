@@ -389,7 +389,7 @@ export async function POST(request: NextRequest) {
 
     auditPayload.audit_fee_id = feeRow.id
 
-    const { data: audit, error: auditError } = await supabase
+    const { data: audit, error: auditError } = await admin
       .from("audits")
       .insert(auditPayload)
       .select()
