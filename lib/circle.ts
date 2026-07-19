@@ -129,8 +129,12 @@ export async function settleReward(req: SettlementRequest): Promise<SettlementRe
       amount: req.amount,
       idempotencyKey: req.idempotencyKey,
     })
-    return result
+    if (result.status === "settled") {
+      return result
+    }
+    console.warn("[circle] releaseContractReward did not settle; falling back to Circle transfer", result.error)
   }
+
 
   // Circle dev-wallet fallback (development / simulation)
   if (!isCircleConfigured()) {
@@ -309,8 +313,12 @@ export async function refundFee(params: {
       auditUuid: params.idempotencyKey,
     })
     console.log("[escrow] refundFee result", result)
-    return result
+    if (result.status === "settled") {
+      return result
+    }
+    console.warn("[circle] refundContractFee did not settle; falling back to Circle transfer", result.error)
   }
+
 
   // Circle dev-wallet fallback (development / simulation)
   const result = await fundUserWallet(params)

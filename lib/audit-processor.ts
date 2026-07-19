@@ -54,12 +54,20 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
     if (claimedAudit.audit_fee_id) {
       feeQuery = feeQuery.eq("id", claimedAudit.audit_fee_id)
     } else {
-      feeQuery = feeQuery.order("created_at", { ascending: false }).limit(1)
+      feeQuery = feeQuery
+        .in("status", ["used", "authorized", "settled"])
+        .order("created_at", { ascending: false })
+        .limit(1)
     }
 
     const { data: feeRow } = await feeQuery.maybeSingle()
 
-    if (feeRow?.source_address) {
+    if (feeRow && !claimedAudit.audit_fee_id) {
+      await admin.from("audits").update({ audit_fee_id: feeRow.id }).eq("id", claimedAudit.id)
+    }
+
+    if (feeRow?.id && feeRow?.source_address) {
+      console.log("[audit-processor] Registering contract deposit", { feeId: feeRow.id, sourceAddress: feeRow.source_address, amount: feeRow.amount })
       const depositResult = await notifyContractDeposit({
         auditUuid: feeRow.id,
         depositor: feeRow.source_address,
@@ -69,6 +77,7 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
         console.warn("[audit-processor] notifyContractDeposit warning", depositResult.error)
       }
     }
+
 
     const { data: agents } = await admin
       .from("agents")
