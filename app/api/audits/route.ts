@@ -712,7 +712,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 7. Finalize the audit (fee status already set in refund logic above)
-    const { data: finalAudit } = await supabase
+    const { data: finalAudit, error: finalAuditError } = await supabase
       .from("audits")
       .update({
         status: "completed",
@@ -725,8 +725,14 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
+    if (finalAuditError || !finalAudit) {
+      console.error("Failed to finalize audit status", { auditId: audit.id, finalAuditError })
+      await supabase.from("audits").update({ status: "failed" }).eq("id", audit.id)
+      throw new Error(finalAuditError?.message ?? "Failed to finalize audit")
+    }
+
     return NextResponse.json({
-      audit: finalAudit ?? audit,
+      audit: finalAudit,
       summary: analysis.summary,
       findings_count: insertedFindings?.length ?? 0,
       total_reward: totalReward,
