@@ -5,11 +5,11 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import {
   createCircleUser,
   createUserSession,
-  createFeeTransferChallenge,
   getUserWallet,
   getUserUsdcBalance,
+  createFeeTransferChallenge,
 } from "@/lib/circle-user"
-import { getTreasuryAddress } from "@/lib/circle"
+import { getTreasuryAddress, getDeveloperWalletAddress } from "@/lib/circle"
 import { computeEscrowBreakdown } from "@/lib/fees"
 
 const BASE_FEE_AMOUNT = Number(process.env.AUDIT_FEE_USDC ?? "1")
@@ -47,6 +47,14 @@ export async function POST(request: Request) {
       )
     }
 
+    const devWalletAddress = await getDeveloperWalletAddress()
+    if (!devWalletAddress) {
+      return NextResponse.json(
+        { error: "Developer wallet address could not be resolved." },
+        { status: 500 },
+      )
+    }
+
     const balance = await getUserUsdcBalance(session.userToken, wallet.walletId)
     const amount = Number(balance.amount)
     if (amount < FEE_AMOUNT) {
@@ -56,12 +64,12 @@ export async function POST(request: Request) {
       )
     }
 
-    const idempotencyKey = randomUUID()
-
     if (!balance?.tokenId) {
       console.error("Missing tokenId for user wallet when creating fee challenge", { userId: user.id })
       return NextResponse.json({ error: "USDC token ID not found for user wallet" }, { status: 400 })
     }
+
+    const idempotencyKey = randomUUID()
 
     let challenge
     try {
@@ -70,18 +78,17 @@ export async function POST(request: Request) {
         walletId: wallet.walletId,
         tokenId: balance.tokenId,
         amount: FEE_AMOUNT,
-        destinationAddress: treasuryAddress,
+        destinationAddress: devWalletAddress, // Send to dev wallet EOA!
         idempotencyKey,
       })
     } catch (err) {
-      // Log full error object when available for debugging the Circle SDK parameter issue
       try {
         console.error("createFeeTransferChallenge failed", {
           userId: user.id,
           walletId: wallet.walletId,
           tokenId: balance.tokenId,
           amount: FEE_AMOUNT,
-          destinationAddress: treasuryAddress,
+          destinationAddress: devWalletAddress,
           idempotencyKey,
           error: err instanceof Error ? err.message : err,
         })
@@ -92,7 +99,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Circle createTransaction failed: ${err instanceof Error ? err.message : String(err)}` }, { status: 502 })
     }
 
-    // Persist fee attempt server-side for reconciliation and audit locking
+    // Persist fee attempt server-side for reconciliation and locking
     try {
       const { escrow, net } = computeEscrowBreakdown(BASE_FEE_AMOUNT)
       await admin.from("audit_fees").insert({
@@ -107,7 +114,6 @@ export async function POST(request: Request) {
         status: "pending",
       })
     } catch (dbErr) {
-      // non-fatal: still return challenge payload but log server-side
       console.error("Failed to persist audit fee attempt:", dbErr)
     }
 

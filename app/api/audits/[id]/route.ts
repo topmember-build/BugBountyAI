@@ -40,6 +40,31 @@ export async function GET(
     return NextResponse.json({ error: findingsError.message }, { status: 500 })
   }
 
+  const findingIds = (findings ?? []).map((finding) => finding.id)
+  const paymentByFindingId = new Map<string, {
+    amount: number
+    status: string
+    provider: string | null
+    tx_hash: string | null
+    external_id: string | null
+    settled_at: string | null
+  }>()
+
+  if (findingIds.length > 0) {
+    const { data: rewardRows, error: rewardsError } = await supabase
+      .from("rewards")
+      .select("finding_id, amount, status, provider, tx_hash, external_id, settled_at")
+      .in("finding_id", findingIds)
+
+    if (rewardsError) {
+      return NextResponse.json({ error: rewardsError.message }, { status: 500 })
+    }
+
+    for (const reward of rewardRows ?? []) {
+      paymentByFindingId.set(reward.finding_id, reward)
+    }
+  }
+
   const { data: feeRow } = await supabase
     .from("audit_fees")
     .select("status")
@@ -50,7 +75,10 @@ export async function GET(
 
   return NextResponse.json({
     audit,
-    findings: findings ?? [],
+    findings: (findings ?? []).map((finding) => ({
+      ...finding,
+      payment: paymentByFindingId.get(finding.id) ?? null,
+    })),
     feeStatus: feeRow?.status ?? null,
   })
 }

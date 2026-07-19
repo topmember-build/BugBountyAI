@@ -2,14 +2,25 @@ import "server-only"
 
 import { randomUUID } from "node:crypto"
 import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets"
+import {
+  isEscrowConfigured,
+  getContractAddress,
+  releaseContractReward,
+  refundContractFee,
+  type EscrowSettlementResult,
+  type EscrowFundingResult,
+} from "@/lib/escrow-contract"
 
 /**
  * Circle / Arc settlement integration.
  *
- * Rewards are settled in USDC through Circle's developer-controlled wallets.
- * The official SDK handles entity secret ciphertext encryption per request.
- * When credentials are missing we fall back to a deterministic local
- * settlement so the product remains fully functional in preview/development.
+ * Outgoing payments (rewards + refunds) are now routed through the
+ * BugBountyEscrow smart contract instead of the Circle dev wallet.
+ * The Circle SDK is retained for:
+ *   - Faucet / user onboarding (fundUserWallet)
+ *   - Dev/preview simulation fallback when escrow is not configured
+ *
+ * TREASURY_ADDRESS now resolves to the escrow contract address.
  */
 
 const CIRCLE_API_KEY = process.env.CIRCLE_API_KEY
@@ -60,7 +71,7 @@ async function resolveUsdcTokenId(): Promise<string | null> {
     const res = await client.getWalletTokenBalance({ id: CIRCLE_WALLET_ID! })
     const balances = res.data?.tokenBalances ?? []
     console.log("[circle] Available token balances:", JSON.stringify(balances.map(b => ({ symbol: b.token?.symbol, id: b.token?.id, amount: b.amount })), null, 2))
-    const usdc = balances.find((b) => b.token?.symbol?.toUpperCase().includes("USDC"))
+    const usdc = balances.find((b) => b.token?.symbol?.toUpperCase().includes("USDC") && b.token?.isNative === false)
     if (usdc?.token?.id) {
       cachedUsdcTokenId = usdc.token.id
       console.log("[circle] Resolved USDC token ID:", cachedUsdcTokenId)
@@ -86,11 +97,9 @@ async function buildTransferPayload(params: {
   idempotencyKey: string
   tokenId: string
 }) {
-  const treasuryAddress = await getTreasuryAddress()
-  const blockchain = (process.env.CIRCLE_BLOCKCHAIN ?? "ARC-TESTNET").trim().toUpperCase().replace(/_/g, "-")
-
   const payload: Record<string, unknown> = {
     tokenId: params.tokenId,
+    walletId: CIRCLE_WALLET_ID!,
     destinationAddress: params.destinationAddress,
     amount: [params.amount.toFixed(6)],
     fee: {
@@ -102,23 +111,31 @@ async function buildTransferPayload(params: {
     idempotencyKey: normalizeIdempotencyKey(params.idempotencyKey),
   }
 
-  if (treasuryAddress) {
-    payload.walletAddress = treasuryAddress
-    payload.blockchain = blockchain
-  } else {
-    payload.walletId = CIRCLE_WALLET_ID!
-  }
-
   return payload
 }
 
 /**
- * Settle a USDC reward to the agent's wallet via Circle.
- * Uses the Circle SDK (developer-controlled wallets), which generates the
- * required entity secret ciphertext for each transaction.
+ * Settle a USDC reward to an agent wallet.
+ *
+ * Routes through the BugBountyEscrow contract when configured.
+ * Falls back to Circle dev-wallet when escrow is not configured (dev/sim mode).
+ *
+ * NOTE: `req.idempotencyKey` is expected to be the audit DB UUID when coming
+ * from the audits route so the contract can derive the correct auditId.
  */
 export async function settleReward(req: SettlementRequest): Promise<SettlementResult> {
-  // No credentials configured -> simulate a successful on-chain settlement.
+  // Smart contract path (production)
+  if (isEscrowConfigured()) {
+    const result: EscrowSettlementResult = await releaseContractReward({
+      auditUuid: req.idempotencyKey, // audit UUID used as the on-chain auditId key
+      destinationAddress: req.destinationAddress,
+      amount: req.amount,
+      idempotencyKey: req.idempotencyKey,
+    })
+    return result
+  }
+
+  // Circle dev-wallet fallback (development / simulation)
   if (!isCircleConfigured()) {
     return simulateSettlement(req)
   }
@@ -170,10 +187,15 @@ export async function settleReward(req: SettlementRequest): Promise<SettlementRe
   }
 }
 
-/** The treasury wallet's on-chain address (fee destination + payout source). */
+/** The treasury/escrow address — the smart contract when configured, else the Circle dev wallet. */
 let cachedTreasuryAddress: string | null = null
 
 export async function getTreasuryAddress(): Promise<string | null> {
+  // 1. Smart contract escrow (production path)
+  const contractAddr = getContractAddress()
+  if (contractAddr) return contractAddr
+
+  // 2. Circle dev wallet (fallback for dev/sim)
   if (cachedTreasuryAddress) return cachedTreasuryAddress
   if (!isCircleConfigured()) return null
   try {
@@ -183,7 +205,24 @@ export async function getTreasuryAddress(): Promise<string | null> {
     if (address) cachedTreasuryAddress = address
     return address
   } catch (error) {
-    console.error('Error retrieving treasury address:', error);
+    console.error("[circle] Error retrieving treasury address:", error)
+    return null
+  }
+}
+
+let cachedDeveloperWalletAddress: string | null = null
+
+export async function getDeveloperWalletAddress(): Promise<string | null> {
+  if (cachedDeveloperWalletAddress) return cachedDeveloperWalletAddress
+  if (!isCircleConfigured()) return null
+  try {
+    const client = getCircleClient()
+    const res = await client.getWallet({ id: CIRCLE_WALLET_ID! })
+    const address = res.data?.wallet?.address ?? null
+    if (address) cachedDeveloperWalletAddress = address
+    return address
+  } catch (error) {
+    console.error("[circle] Error retrieving developer wallet address:", error)
     return null
   }
 }
@@ -244,20 +283,37 @@ export async function fundUserWallet(params: {
 }
 
 /**
- * Refund a user's audit fee from the treasury back to their wallet, used when
- * an audit fails after the fee was collected.
+ * Refund a user's audit fee back to their wallet.
+ *
+ * Routes through the BugBountyEscrow contract when configured (the contract
+ * resolves the depositor address automatically from on-chain state).
+ * Falls back to Circle dev-wallet transfer in dev/sim mode.
+ *
+ * NOTE: `idempotencyKey` is expected to be the audit DB UUID so the contract
+ * can derive the correct on-chain auditId.
  */
 export async function refundFee(params: {
   destinationAddress: string
   amount: number
   idempotencyKey: string
 }): Promise<FundingResult> {
-  // Refund mechanics are identical to funding: treasury -> user wallet.
   console.log("[circle] refundFee called", {
     amount: params.amount,
     destination: params.destinationAddress?.slice(0, 10),
+    escrowConfigured: isEscrowConfigured(),
     circleConfigured: isCircleConfigured(),
   })
+
+  // Smart contract path (production)
+  if (isEscrowConfigured()) {
+    const result: EscrowFundingResult = await refundContractFee({
+      auditUuid: params.idempotencyKey,
+    })
+    console.log("[escrow] refundFee result", result)
+    return result
+  }
+
+  // Circle dev-wallet fallback (development / simulation)
   const result = await fundUserWallet(params)
   console.log("[circle] refundFee result", {
     status: result.status,
@@ -266,6 +322,38 @@ export async function refundFee(params: {
     error: result.error,
   })
   return result
+}
+
+export async function transferFromDeveloperWallet(params: {
+  destinationAddress: string
+  amount: number
+  idempotencyKey: string
+}): Promise<{ transactionId: string | null; error?: string }> {
+  if (!isCircleConfigured()) {
+    return { transactionId: null, error: "Circle is not configured." }
+  }
+
+  try {
+    const client = getCircleClient()
+    const tokenId = await resolveUsdcTokenId()
+    if (!tokenId) {
+      return { transactionId: null, error: "No USDC token ID found in developer wallet balances." }
+    }
+
+    const payload = await buildTransferPayload({
+      destinationAddress: params.destinationAddress,
+      amount: params.amount,
+      idempotencyKey: params.idempotencyKey,
+      tokenId,
+    })
+
+    console.log("[circle] transferFromDeveloperWallet calling createTransaction:", JSON.stringify(payload, null, 2))
+    const res = await client.createTransaction(payload)
+    const tx = res.data?.transaction ?? res.data
+    return { transactionId: tx?.id ?? null }
+  } catch (err) {
+    return { transactionId: null, error: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 export interface TransactionStatus {

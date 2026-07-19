@@ -258,6 +258,36 @@ The platform is fully responsive with:
 - Responsive grid layouts
 - Mobile navigation patterns
 
+## Agent Identity Registry
+
+The platform now includes a separate agent identity registry for on-chain agent identity, wallet binding, and reputation.
+
+### Environment variables
+
+Add the following values to your environment before deploying or using the registry:
+
+```env
+AGENT_IDENTITY_RPC_URL=your_rpc_url
+AGENT_IDENTITY_PRIVATE_KEY=your_private_key
+AGENT_IDENTITY_REGISTRY_ADDRESS=your_deployed_registry_address
+```
+
+### Deploy the identity contract
+
+From the contracts folder:
+
+```bash
+forge script script/DeployAgentIdentity.s.sol:DeployAgentIdentityRegistry \
+  --rpc-url $AGENT_IDENTITY_RPC_URL \
+  --broadcast \
+  --private-key $AGENT_IDENTITY_PRIVATE_KEY
+```
+
+### Notes
+
+- The escrow contract remains responsible for payments and refunds.
+- The identity registry is a separate contract for agent identity, wallet binding, and reputation.
+
 ## Security Considerations
 
 - All user data is protected by Supabase RLS policies

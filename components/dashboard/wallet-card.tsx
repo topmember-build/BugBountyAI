@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import useSWR from "swr"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Wallet } from "lucide-react"
+import { Loader2, Wallet, ArrowRightLeft, ChevronDown, ChevronUp } from "lucide-react"
 import { W3SSdk } from "@circle-fin/w3s-pw-web-sdk"
 import { useLanguage } from "@/lib/language-context"
 
@@ -38,10 +38,24 @@ interface WalletCardProps {
   autoSetup?: boolean
 }
 
+interface HistoryItem {
+  id: string
+  kind: "audit_fee" | "agent_payout"
+  title: string
+  createdAt: string | null
+  amount: number
+  status: string
+  detail: string
+  txId: string | null
+  txHash: string | null
+  provider: string | null
+}
+
 export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = false }: WalletCardProps) {
   const { data, isLoading, mutate } = useSWR<WalletStatus>("/api/wallet", fetcher, {
     refreshInterval: 15000,
   })
+  const { data: historyData, isLoading: historyLoading } = useSWR<{ items: HistoryItem[] }>("/api/wallet/history", fetcher)
 
   const { t } = useLanguage()
 
@@ -50,6 +64,7 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
   const [error, setError] = useState<string | null>(null)
   const [faucetState, setFaucetState] = useState<"idle" | "sending" | "done">("idle")
   const [faucetMessage, setFaucetMessage] = useState<string | null>(null)
+  const [showPaymentHistory, setShowPaymentHistory] = useState(false)
   const [preparedFeeChallenge, setPreparedFeeChallenge] = useState<{
     appId: string
     userToken: string
@@ -214,19 +229,21 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
       }
 
       let sdkResult: any = null
-      try {
-        sdkResult = await runChallenge(result)
-      } catch (err) {
-        if (data?.pendingChallengeId && result?.challengeId) {
-          console.warn("Existing pending challenge execution failed, requesting a fresh challenge", err)
-          await prepareFeeChallenge()
-          if (!preparedFeeChallenge) {
-            throw new Error("Unable to refresh fee challenge after pending challenge failure")
-          }
-          result = preparedFeeChallenge
+      if (result.challengeId) {
+        try {
           sdkResult = await runChallenge(result)
-        } else {
-          throw err
+        } catch (err) {
+          if (data?.pendingChallengeId && result?.challengeId) {
+            console.warn("Existing pending challenge execution failed, requesting a fresh challenge", err)
+            await prepareFeeChallenge()
+            if (!preparedFeeChallenge) {
+              throw new Error("Unable to refresh fee challenge after pending challenge failure")
+            }
+            result = preparedFeeChallenge
+            sdkResult = await runChallenge(result)
+          } else {
+            throw err
+          }
         }
       }
 
@@ -477,6 +494,51 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
               </div>
             </div>
           )}
+
+          <div className="mt-4 rounded-xl border border-border/70 bg-muted/20 p-4">
+            <button
+              type="button"
+              onClick={() => setShowPaymentHistory((current) => !current)}
+              className="flex w-full items-center justify-between gap-2 text-left"
+            >
+              <div className="flex items-center gap-2">
+                <ArrowRightLeft className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-medium">Payment activity</h3>
+              </div>
+              {showPaymentHistory ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+            </button>
+            {showPaymentHistory ? (
+              <div className="mt-3">
+                {historyLoading ? (
+                  <div className="text-sm text-muted-foreground">Loading payment history...</div>
+                ) : (historyData?.items?.length ? (
+                  <div className="space-y-3">
+                    {historyData.items.map((item) => (
+                      <div key={item.id} className="rounded-lg border border-border/60 bg-background/70 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <div className="text-sm font-medium">{item.title}</div>
+                            <div className="text-xs text-muted-foreground">{item.detail}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-medium text-primary">${Number(item.amount).toFixed(2)}</div>
+                            <div className="text-xs text-muted-foreground">{item.status}</div>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                          {item.createdAt ? <span>{new Date(item.createdAt).toLocaleString()}</span> : null}
+                          {item.provider ? <span>• {item.provider}</span> : null}
+                          {item.txHash ? <span>• {item.txHash.slice(0, 12)}...</span> : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No payment activity yet.</div>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       )}
     </section>

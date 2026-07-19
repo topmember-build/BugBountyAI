@@ -49,10 +49,6 @@ export function AgentRegistryPanel() {
   const [walletAddress, setWalletAddress] = useState<string | null>(null)
   const [walletVerified, setWalletVerified] = useState(false)
   const [verifyingWallet, setVerifyingWallet] = useState(false)
-  const [contractAddress, setContractAddress] = useState<string | null>(null)
-  const [savingContract, setSavingContract] = useState(false)
-  const [minting, setMinting] = useState(false)
-  const [mintTx, setMintTx] = useState<string | null>(null)
 
   const { data, isLoading, mutate } = useSWR<{ agents: Agent[] }>("/api/agents?mine=1", fetcher, {
     revalidateOnFocus: false,
@@ -62,10 +58,6 @@ export function AgentRegistryPanel() {
     wallets: { address: string; created_at: string }[]
   }>("/api/wallets/list", fetcher, { revalidateOnFocus: false })
 
-  const { data: contractsData, isLoading: contractsLoading, mutate: mutateContracts } = useSWR<{
-    contracts: { id: string; contract_address: string; name?: string | null; created_at: string; onchainName?: string | null; onchainSymbol?: string | null }[]
-    network?: string
-  }>("/api/wallets/contracts?onchain=1", fetcher, { revalidateOnFocus: false })
 
   const agents = data?.agents ?? []
 
@@ -330,137 +322,13 @@ export function AgentRegistryPanel() {
                 </div>
               ) : null}
 
-              {contractsLoading ? (
-                <div className="text-sm text-muted-foreground mt-2">{t("loading_minted_contracts")}</div>
-              ) : contractsData?.contracts?.length ? (
-                <div className="mt-3 space-y-2">
-                  <div className="text-sm font-medium">My minted agent contracts</div>
-                  {contractsData.contracts.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                      <div className="flex flex-col">
-                        <div className="truncate">{c.contract_address}</div>
-                        <div className="text-xs text-muted-foreground">{c.name ?? c.onchainName ?? "-"} {c.onchainSymbol ? `· ${c.onchainSymbol}` : null}</div>
-                        {contractsData.network ? (
-                          <a
-                            className="text-xs text-primary underline"
-                            href={getExplorerUrl(contractsData.network, c.contract_address)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            View on explorer
-                          </a>
-                        ) : null}
-                        <div className="mt-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={async () => {
-                              if (!confirm('Remove contract ' + c.contract_address + '?')) return
-                              try {
-                                const res = await fetch('/api/wallets/contracts/remove', {
-                                  method: 'POST',
-                                  credentials: 'include',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ id: c.id }),
-                                })
-                                const body = await res.json()
-                                if (!res.ok) throw new Error(body.error ?? 'Failed to remove')
-                                mutateContracts()
-                              } catch (err) {
-                                setError(err instanceof Error ? err.message : String(err))
-                              }
-                            }}
-                          >
-                            {t("remove")}
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleString()}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
             </div>
 
-            <div className="space-y-2">
-              <Label>Minted agent contract (optional)</Label>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Input
-                  placeholder="0xContractAddress"
-                  value={contractAddress ?? ""}
-                  onChange={(e) => setContractAddress(e.target.value)}
-                />
-                <Button
-                  type="button"
-                  onClick={async () => {
-                    if (!contractAddress) return
-                    setSavingContract(true)
-                    try {
-                      const res = await fetch("/api/wallets/import-contract", {
-                        method: "POST",
-                        credentials: "include",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ contract_address: contractAddress, name: name || null }),
-                      })
-                      const body = await res.json()
-                      if (!res.ok) throw new Error(body.error ?? "Failed to save contract")
-                      setContractAddress("")
-                      mutateWallets()
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : String(err))
-                    } finally {
-                      setSavingContract(false)
-                    }
-                  }}
-                >
-                  {savingContract ? t("saving") : t("import")}
-                </Button>
-
-                <Button
-                  type="button"
-                  onClick={async () => {
-                    setError(null)
-                    if (!name) return setError("Please provide an agent name before minting")
-                    try {
-                      const eth = (window as any).ethereum
-                      if (!eth) return setError("No Ethereum provider found in the browser.")
-                      // Dynamically import ethers to avoid bundler/TS issues in some environments
-                      // eslint-disable-next-line @typescript-eslint/no-var-requires
-                      const { ethers } = await import("ethers")
-                      const provider = new ethers.providers.Web3Provider(eth)
-                      const signer = provider.getSigner()
-                      // Load factory ABI/bytecode from a local JSON file. Replace with your compiled artifact.
-                      const resp = await fetch("/contracts/AgentFactory.json")
-                      const artifact = await resp.json()
-                      const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer)
-                      setMinting(true)
-                      const txContract = await factory.deploy(name)
-                      setMintTx(txContract.deployTransaction.hash)
-                      await txContract.deployed()
-                      const addr = txContract.address
-                      // save contract to server
-                      const res = await fetch("/api/wallets/import-contract", {
-                        method: "POST",
-                        credentials: "include",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ contract_address: addr, name }),
-                      })
-                      const body = await res.json()
-                      if (!res.ok) throw new Error(body.error ?? "Failed to import minted contract")
-                      setContractAddress("")
-                      mutateWallets()
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : String(err))
-                    } finally {
-                      setMinting(false)
-                    }
-                  }}
-                  disabled={minting}
-                >
-                  {minting ? t("minting") : t("mint_agent")}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">If you already minted an agent contract, paste it here to link it to your account.</p>
+            <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-sm text-muted-foreground">
+              <div className="font-medium text-foreground">On-chain identity registration</div>
+              <p className="mt-1">
+                Saving this agent will register an on-chain identity entry and bind the verified wallet to it. No separate contract mint is required.
+              </p>
             </div>
 
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -516,6 +384,15 @@ export function AgentRegistryPanel() {
                       ))}
                     </div>
                   ) : null}
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <Badge variant="secondary">Reputation: {agent.reputation}</Badge>
+                    {agent.onchain_identity_status ? (
+                      <Badge variant="outline">Onchain: {agent.onchain_identity_status}</Badge>
+                    ) : null}
+                    {agent.onchain_registry_address ? (
+                      <span className="font-mono">{agent.onchain_registry_address}</span>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>

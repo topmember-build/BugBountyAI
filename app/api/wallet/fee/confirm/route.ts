@@ -78,7 +78,7 @@ export async function POST(request: Request) {
         const treasuryAddress = await getTreasuryAddress()
         if (!treasuryAddress) {
           return NextResponse.json(
-            { error: "Treasury wallet address is not configured." },
+            { error: "Escrow contract address is not configured." },
             { status: 500 },
           )
         }
@@ -171,7 +171,7 @@ export async function POST(request: Request) {
     updatePayload.challenge_id = challengeId
   }
 
-  let feeQuery = supabase
+  let feeQuery = admin
     .from("audit_fees")
     .select("id, status, transaction_id, challenge_id")
     .eq("user_id", user.id)

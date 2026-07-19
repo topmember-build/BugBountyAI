@@ -11,6 +11,15 @@ import { ArrowLeft, Copy, FileCode, GitBranch } from "lucide-react"
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
+interface Payment {
+  amount: number
+  status: "pending" | "settling" | "settled" | "failed"
+  provider: string | null
+  tx_hash: string | null
+  external_id: string | null
+  settled_at: string | null
+}
+
 interface Finding {
   id: string
   title: string
@@ -25,6 +34,7 @@ interface Finding {
   reward_amount: number
   reward_status: "pending" | "settling" | "settled" | "failed"
   agents: { name: string; agent_type: string } | null
+  payment: Payment | null
 }
 
 interface Audit {
@@ -323,6 +333,59 @@ export function AuditDetail({ auditId }: { auditId: string }) {
                   <span className="text-muted-foreground">{f.recommendation}</span>
                 </div>
               )}
+
+              <div className="mt-4 rounded-lg border border-border/60 bg-muted/30 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-medium">Agent payment</div>
+                    <div className="text-xs text-muted-foreground">
+                      {f.payment?.status === "settled"
+                        ? "This payout has been sent and confirmed."
+                        : f.payment?.status === "settling"
+                          ? "The payout is being processed and will update automatically."
+                          : f.payment?.status === "failed"
+                            ? "The payout attempt failed."
+                            : "Waiting for the payment record to appear."}
+                    </div>
+                  </div>
+                  <Badge variant="outline" className={rewardStyles[f.payment?.status ?? "pending"]}>
+                    {f.payment?.status ?? "pending"}
+                  </Badge>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+                  <div>
+                    <div className="text-muted-foreground">Amount</div>
+                    <div className="font-medium text-primary">
+                      ${Number(f.payment?.amount ?? f.reward_amount).toFixed(2)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Provider</div>
+                    <div className="font-medium">
+                      {f.payment?.provider ?? "pending"}
+                    </div>
+                  </div>
+                </div>
+
+                {f.payment?.tx_hash ? (
+                  <div className="mt-3 text-xs font-mono text-muted-foreground break-all">
+                    Tx hash: {f.payment.tx_hash}
+                  </div>
+                ) : null}
+
+                {f.payment?.external_id ? (
+                  <div className="mt-1 text-xs text-muted-foreground break-all">
+                    External ID: {f.payment.external_id}
+                  </div>
+                ) : null}
+
+                {f.payment?.settled_at ? (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Settled {new Date(f.payment.settled_at).toLocaleString()}
+                  </div>
+                ) : null}
+              </div>
 
               <div className="mt-3 text-xs text-muted-foreground">
                 Confidence {(Number(f.confidence) * 100).toFixed(0)}%

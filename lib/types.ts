@@ -16,6 +16,9 @@ export interface Agent {
   findings_count: number
   total_earned: number
   reputation: number
+  onchain_agent_id?: string | null
+  onchain_registry_address?: string | null
+  onchain_identity_status?: string | null
   created_at: string
 }
 

@@ -6,6 +6,14 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Loader2, Search } from "lucide-react"
 import type { Agent } from "@/lib/types"
 
@@ -13,6 +21,9 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function AgentsPage() {
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([])
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
+  const [onchainDetails, setOnchainDetails] = useState<any>(null)
+  const [onchainLoading, setOnchainLoading] = useState(false)
   const { data, error, isLoading } = useSWR<{ agents: Agent[] }>("/api/agents", fetcher, {
     refreshInterval: 20000,
   })
@@ -28,6 +39,22 @@ export default function AgentsPage() {
     setSelectedAgentIds((current) =>
       current.includes(id) ? current.filter((existing) => existing !== id) : [...current, id],
     )
+  }
+
+  const openAgentDetails = async (agent: Agent) => {
+    setSelectedAgent(agent)
+    setOnchainLoading(true)
+    setOnchainDetails(null)
+
+    try {
+      const response = await fetch(`/api/agents/${agent.slug}/onchain`)
+      const payload = await response.json()
+      setOnchainDetails(payload)
+    } catch {
+      setOnchainDetails({ error: "Unable to load on-chain details." })
+    } finally {
+      setOnchainLoading(false)
+    }
   }
 
   return (
@@ -88,7 +115,15 @@ export default function AgentsPage() {
                   <span>{agent.findings_count} findings</span>
                   <span>• ${Number(agent.total_earned).toFixed(0)} earned</span>
                   <span>• rep {agent.reputation}</span>
+                  {agent.onchain_identity_status ? (
+                    <span>• on-chain {agent.onchain_identity_status}</span>
+                  ) : null}
                 </div>
+                {agent.onchain_agent_id ? (
+                  <div className="mb-4 rounded-xl border border-border/70 bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+                    On-chain identity: #{agent.onchain_agent_id}
+                  </div>
+                ) : null}
                 <div className="mt-auto flex flex-col gap-2">
                   <Button
                     type="button"
@@ -99,6 +134,73 @@ export default function AgentsPage() {
                   >
                     {selectedAgentIds.includes(agent.id) ? "Selected for audit" : "Select for audit"}
                   </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button type="button" size="sm" variant="ghost" className="w-full" onClick={() => openAgentDetails(agent)}>
+                        View on-chain details
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>{selectedAgent?.name ?? agent.name}</DialogTitle>
+                        <DialogDescription>
+                          Registered on-chain identity details for this agent.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-3 text-sm">
+                        {onchainLoading ? (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Loading on-chain profile...
+                          </div>
+                        ) : onchainDetails?.error ? (
+                          <p className="text-muted-foreground">{onchainDetails.error}</p>
+                        ) : (
+                          <>
+                            <div className="rounded-xl border border-border/70 bg-muted/40 p-3">
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Status</span>
+                                <span className="font-medium">{selectedAgent?.onchain_identity_status ?? "unknown"}</span>
+                              </div>
+                              <div className="mt-2 flex items-center justify-between">
+                                <span className="text-muted-foreground">Agent ID</span>
+                                <span className="font-medium">{selectedAgent?.onchain_agent_id ?? "n/a"}</span>
+                              </div>
+                            </div>
+                            <div className="rounded-xl border border-border/70 bg-card p-3 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Owner</span>
+                                <span className="font-mono text-xs break-all">{onchainDetails?.onchain?.owner ?? "n/a"}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Wallet</span>
+                                <span className="font-mono text-xs break-all">{onchainDetails?.onchain?.wallet ?? "n/a"}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Reputation</span>
+                                <span className="font-medium">{onchainDetails?.onchain?.reputation ?? "0"}</span>
+                              </div>
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="text-muted-foreground">Metadata URI</span>
+                                {onchainDetails?.onchain?.metadataURI ? (
+                                  <a
+                                    href={onchainDetails.onchain.metadataURI}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="max-w-[260px] break-all font-mono text-xs text-primary underline underline-offset-4"
+                                  >
+                                    {onchainDetails.onchain.metadataURI}
+                                  </a>
+                                ) : (
+                                  <span className="font-mono text-xs">n/a</span>
+                                )}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                   <p className="text-xs text-muted-foreground">
                     {selectedAgentIds.includes(agent.id)
                       ? "This agent will be carried into your audit setup."

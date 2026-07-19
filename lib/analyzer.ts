@@ -61,8 +61,11 @@ type RegisteredAgentDescriptor = {
 }
 
 export async function analyzeRepository(input: {
-  repoUrl: string
+  repoUrl?: string
   branch?: string
+  contractCode?: string
+  contractFilename?: string
+  archiveFilename?: string
   selectedAgents?: Array<AgentType | RegisteredAgentDescriptor>
 }): Promise<AnalysisResult> {
   const registeredAgents = Array.isArray(input.selectedAgents)
@@ -107,17 +110,19 @@ export async function analyzeRepository(input: {
       "- logic: business-logic flaws, broken invariants, race conditions",
       "- dependency: vulnerable/outdated packages, supply-chain risk (CVEs)",
       "- smart_contract: reentrancy, integer issues, economic exploits",
-      "Given a repository target, produce a realistic, technically credible set of vulnerability findings",
+      "Given a repository, smart contract code, or uploaded project folder, produce a realistic, technically credible set of vulnerability findings",
       "that such a codebase would plausibly contain. Vary severity and confidence realistically.",
       agentScope,
     ].filter(Boolean).join("\n"),
     prompt: [
-      `Repository: ${input.repoUrl}`,
-      `Branch: ${input.branch ?? "main"}`,
+      input.contractCode ? `Smart Contract Code (${input.contractFilename || "contract.sol"}):\n${input.contractCode}` : "",
+      input.archiveFilename ? `Uploaded Project Folder: ${input.archiveFilename}` : "",
+      (input.repoUrl && !input.contractCode && !input.archiveFilename) ? `Repository: ${input.repoUrl}` : "",
+      (input.repoUrl && !input.contractCode && !input.archiveFilename) ? `Branch: ${input.branch ?? "main"}` : "",
       "",
-      "Analyze this repository and report the vulnerabilities your agent swarm would surface.",
+      "Analyze this target and report the vulnerabilities your agent swarm would surface.",
       "Be specific about file paths and remediation. Do not fabricate CVE numbers.",
-    ].join("\n"),
+    ].filter(Boolean).join("\n"),
   })
 
   const output = experimental_output as z.infer<typeof analysisSchema>

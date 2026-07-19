@@ -3,8 +3,11 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { analyzeRepository } from "@/lib/analyzer"
 import { calculateReward } from "@/lib/rewards"
-import { refundFee, settleReward } from "@/lib/circle"
+import { refundFee, settleReward, getTransactionStatus, getTreasuryAddress, transferFromDeveloperWallet } from "@/lib/circle"
+import { randomUUID } from "crypto"
+import { notifyContractDeposit, settleContractAudit } from "@/lib/escrow-contract"
 import { createCircleUser, createUserSession, getUserTransaction, getUserWallet } from "@/lib/circle-user"
+import { updateAgentReputation } from "@/lib/agent-identity"
 import type { AgentType } from "@/lib/types"
 
 export const maxDuration = 120
@@ -55,6 +58,8 @@ export async function POST(request: NextRequest) {
     fee_transaction_id?: string
     archive_path?: string
     archive_filename?: string
+    contract_code?: string
+    contract_filename?: string
   }
 
   if (contentType.includes("multipart/form-data")) {
@@ -65,6 +70,8 @@ export async function POST(request: NextRequest) {
       fee_transaction_id: formData.get("fee_transaction_id") as string | undefined,
       archive_path: formData.get("archive_path") as string | undefined,
       archive_filename: formData.get("archive_filename") as string | undefined,
+      contract_code: formData.get("contract_code") as string | undefined,
+      contract_filename: formData.get("contract_filename") as string | undefined,
     }
   } else {
     try {
@@ -74,9 +81,30 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const repoUrl = body.repo_url?.trim()
+  let repoUrl = body.repo_url?.trim()
+  const contractCode = body.contract_code?.trim()
+  const archivePath = body.archive_path?.trim()
+
+  if (!repoUrl && !contractCode && !archivePath) {
+    return NextResponse.json(
+      { error: "At least one target (GitHub Repository, Smart Contract, or Project Folder) is required." },
+      { status: 400 }
+    )
+  }
+
+  // Populate placeholder repoUrl for the database if not provided
   if (!repoUrl) {
-    return NextResponse.json({ error: "repo_url is required" }, { status: 400 })
+    if (contractCode) {
+      repoUrl = body.contract_filename
+        ? `Pasted Contract: ${body.contract_filename}`
+        : "Pasted Smart Contract"
+    } else if (archivePath) {
+      repoUrl = body.archive_filename
+        ? `Uploaded Project: ${body.archive_filename}`
+        : "Uploaded Project Folder"
+    } else {
+      repoUrl = "Unknown Scan Target"
+    }
   }
 
   const feeTransactionId = body.fee_transaction_id?.trim()
@@ -253,7 +281,7 @@ export async function POST(request: NextRequest) {
 
   const { data: feeRow, error: feeError } = await admin
     .from("audit_fees")
-    .select("id, amount, status, escrow_fee, net_amount, source_address")
+    .select("id, amount, status, escrow_fee, net_amount, source_address, refund_external_id")
     .eq("user_id", user.id)
     .eq("transaction_id", feeTransactionId)
     .in("status", ["authorized", "settled", "pending"])
@@ -277,25 +305,101 @@ export async function POST(request: NextRequest) {
   try {
     await createCircleUser(user.id)
     const session = await createUserSession(user.id)
+    let state = null
+
+    // Verify User -> Dev transaction is completed
     const tx = await getUserTransaction(session.userToken, feeTransactionId)
+    state = tx?.state ?? null
+
+    if (!state || state === "unknown") {
+      const devStatus = await getTransactionStatus(feeTransactionId)
+      if (devStatus) {
+        state = devStatus.status === "settled" ? "COMPLETE" : devStatus.status === "failed" ? "FAILED" : "PENDING"
+      }
+    }
 
     const settledStates = new Set(["COMPLETE", "CONFIRMED", "SETTLED", "settled"])
-    if (!tx || !settledStates.has(String(tx.state))) {
+    if (!state || !settledStates.has(String(state))) {
       return NextResponse.json(
         {
-          error: `Fee transaction must be settled before submitting an audit. Current state: ${tx?.state ?? "unknown"}`,
+          error: `Fee transaction must be settled before submitting an audit. Current state: ${state ?? "unknown"}`,
         },
         { status: 400 },
       )
     }
 
-    if (feeRow.status !== "settled") {
-      await admin
-        .from("audit_fees")
-        .update({ status: "settled" })
-        .eq("user_id", user.id)
-        .eq("transaction_id", feeTransactionId)
-        .eq("status", "authorized")
+    // Ensure the Dev -> Contract bridge is completed
+    let isBridgeSettled = false
+    let currentRefundExternalId = feeRow.refund_external_id
+
+    if (!currentRefundExternalId) {
+      const treasuryAddress = await getTreasuryAddress()
+      if (!treasuryAddress) {
+        return NextResponse.json({ error: "Escrow contract address not configured" }, { status: 500 })
+      }
+
+      console.log("[bridge] User -> Dev tx complete, initiating Dev -> Contract transfer inside audits route", {
+        amount: feeRow.amount,
+        destinationAddress: treasuryAddress,
+      })
+
+      const transferResult = await transferFromDeveloperWallet({
+        destinationAddress: treasuryAddress,
+        amount: Number(feeRow.amount ?? 1),
+        idempotencyKey: randomUUID(),
+      })
+
+      if (transferResult.transactionId) {
+        currentRefundExternalId = transferResult.transactionId
+        await admin
+          .from("audit_fees")
+          .update({ refund_external_id: transferResult.transactionId })
+          .eq("id", feeRow.id)
+      } else {
+        return NextResponse.json(
+          { error: `Failed to bridge fee to contract: ${transferResult.error ?? "unknown error"}` },
+          { status: 500 },
+        )
+      }
+    }
+
+    // Poll for the Dev -> Contract transfer to settle
+    if (currentRefundExternalId) {
+      console.log("[bridge] Polling Dev -> Contract transfer status:", currentRefundExternalId)
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const devStatus = await getTransactionStatus(currentRefundExternalId)
+        if (devStatus && devStatus.status === "settled") {
+          console.log("[bridge] Dev -> Contract transfer settled successfully!")
+          isBridgeSettled = true
+
+          // Update DB status and refund tx hash
+          await admin
+            .from("audit_fees")
+            .update({ status: "settled", refund_tx_hash: devStatus.txHash })
+            .eq("id", feeRow.id)
+          break
+        }
+        await new Promise((resolve) => setTimeout(resolve, 2500))
+      }
+    }
+
+    if (!isBridgeSettled) {
+      return NextResponse.json(
+        { error: "The fee bridging transaction is still pending or failed. Please wait a few seconds and try again." },
+        { status: 202 }
+      )
+    }
+
+    // Register the deposit on-chain with the smart contract escrow
+    if (feeRow.source_address) {
+      const depositResult = await notifyContractDeposit({
+        auditUuid: feeRow.id, // fee row UUID -> on-chain auditId
+        depositor: feeRow.source_address,
+        amount: Number(feeRow.amount ?? 1),
+      })
+      if (depositResult.error) {
+        console.warn("[escrow] notifyContractDeposit failed (non-fatal)", depositResult.error)
+      }
     }
   } catch (verifyError) {
     return NextResponse.json(
@@ -347,6 +451,9 @@ export async function POST(request: NextRequest) {
           system_prompt?: string | null
           focus_areas?: string | null
           name: string
+          wallet_address?: string | null
+          onchain_agent_id?: string | null
+          onchain_registry_address?: string | null
         }>
       | undefined = undefined
 
@@ -377,19 +484,30 @@ export async function POST(request: NextRequest) {
     const analysis = await analyzeRepository({
       repoUrl,
       branch,
+      contractCode: body.contract_code,
+      contractFilename: body.contract_filename,
+      archiveFilename: body.archive_filename,
       selectedAgents: analysisInput,
     })
 
     // 3. Map agent_type -> agent row (for attribution + leaderboard updates)
     const { data: agents } = await admin
       .from("agents")
-      .select("id, slug, agent_type, wallet_address")
+      .select("id, slug, agent_type, wallet_address, onchain_agent_id, onchain_registry_address")
 
-    const agentByType = new Map<string, { id: string; wallet_address: string | null }>()
+    const agentByType = new Map<
+      string,
+      { id: string; wallet_address: string | null; onchain_agent_id: string | null; onchain_registry_address: string | null }
+    >()
     const agentRowsForMap = [...(selectedAgentRows ?? []), ...(agents ?? [])]
     for (const a of agentRowsForMap) {
       if (!a.agent_type || agentByType.has(a.agent_type)) continue
-      agentByType.set(a.agent_type, { id: a.id, wallet_address: a.wallet_address ?? null })
+      agentByType.set(a.agent_type, {
+        id: a.id,
+        wallet_address: a.wallet_address ?? null,
+        onchain_agent_id: (a as { onchain_agent_id?: string | null }).onchain_agent_id ?? null,
+        onchain_registry_address: (a as { onchain_registry_address?: string | null }).onchain_registry_address ?? null,
+      })
     }
 
     // 4. Build findings with calculated USDC rewards
@@ -476,7 +594,9 @@ export async function POST(request: NextRequest) {
       const settlement = await settleReward({
         amount: payout,
         destinationAddress: destination,
-        idempotencyKey: finding.id,
+        // Pass the fee row id as idempotency key — escrow-contract.ts uses it
+        // as the on-chain auditId via auditIdFromUuid(idempotencyKey).
+        idempotencyKey: feeRow.id,
       })
 
       await supabase
@@ -496,12 +616,26 @@ export async function POST(request: NextRequest) {
         settled_at: settlement.status === "settled" ? new Date().toISOString() : null,
       })
 
-      // Update leaderboard only for actual paid amounts
-      if (finding.agent_id && agentRow) {
-        await admin.rpc("increment_agent_stats", {
-          p_agent_id: finding.agent_id,
-          p_earned: payout,
-          p_reputation: severityReputation(finding.severity),
+      // Update leaderboard only for actually settled payments. For payments
+      // still in "settling" state we defer the leaderboard increment to
+      // the rewards reconciliation process so totals reflect settled USDC.
+      if (finding.agent_id && agentRow && settlement.status === "settled") {
+        try {
+          await admin.rpc("increment_agent_stats", {
+            p_agent_id: finding.agent_id,
+            p_earned: payout,
+            p_reputation: severityReputation(finding.severity),
+          })
+        } catch (err) {
+          console.warn("Failed to rpc increment_agent_stats during audit settlement", { err })
+        }
+      }
+
+      if (settlement.status === "settled" && finding.agent_id && agentRow) {
+        await updateAgentReputation({
+          agentId: agentRow.onchain_agent_id ?? null,
+          registryAddress: agentRow.onchain_registry_address ?? null,
+          delta: severityReputation(finding.severity),
         })
       }
 
@@ -569,7 +703,11 @@ export async function POST(request: NextRequest) {
         await updateFeeStatus(feeRow.id, "refund_failed")
       }
     } else {
-      console.log("[refund] No leftover net to refund", { feeId: feeRow.id, remainingNet })
+      console.log("[refund] No leftover net to refund — settling escrow on-chain", { feeId: feeRow.id, remainingNet })
+      // Settle the on-chain escrow slot so no further payments can be made
+      await settleContractAudit({ auditUuid: feeRow.id }).catch((err) =>
+        console.warn("[escrow] settleContractAudit failed (non-fatal)", err instanceof Error ? err.message : err),
+      )
       await updateFeeStatus(feeRow.id, "used")
     }
 
@@ -597,6 +735,7 @@ export async function POST(request: NextRequest) {
     if (audit?.id) {
       await supabase.from("audits").update({ status: "failed" }).eq("id", audit.id)
     }
+    // Also pass the fee row id so refundFee -> refundContractFee can derive the correct auditId
     await refundAuditFee(feeRow, "audit_failed")
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Audit failed" },

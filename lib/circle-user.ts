@@ -246,7 +246,7 @@ export async function getUserUsdcBalance(
   const client = getUserClient()
   const res = await client.getWalletTokenBalance({ userToken, walletId })
   const balances = res.data?.tokenBalances ?? []
-  const usdc = balances.find((b) => b.token?.symbol?.toUpperCase().includes("USDC"))
+  const usdc = balances.find((b) => b.token?.symbol?.toUpperCase().includes("USDC") && b.token?.isNative === false)
   return { amount: usdc?.amount ?? "0", tokenId: usdc?.token?.id ?? null }
 }
 

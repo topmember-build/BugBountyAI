@@ -1,9 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { ethers } from "ethers"
 import { createClient } from "@/lib/supabase/server"
 import type { AgentType } from "@/lib/types"
+import { registerAgentIdentity } from "@/lib/agent-identity"
 
 const AGENT_TYPES: AgentType[] = ["security", "logic", "dependency", "smart_contract"]
-const AGENT_SELECT = "id, slug, name, agent_type, description, avatar_seed, wallet_address, focus_areas, system_prompt, findings_count, total_earned, reputation, created_at"
+const AGENT_SELECT = "id, slug, name, agent_type, description, avatar_seed, wallet_address, focus_areas, system_prompt, findings_count, total_earned, reputation, created_at, onchain_agent_id, onchain_registry_address, onchain_identity_status"
+
+function buildDefaultWallet(seed: string) {
+  return ethers.computeAddress(ethers.id(`bugbounty-agent-wallet-${seed}`))
+}
 
 const DEFAULT_AGENTS = [
   {
@@ -15,7 +21,7 @@ const DEFAULT_AGENTS = [
     focus_areas: "Authentication, OWASP Top 10, SQL injection, XSS",
     system_prompt: "You are Sentinel, a disciplined security agent for bug bounty work.",
     avatar_seed: "sentinel",
-    wallet_address: "0x95D10619338707703475239EC03120A8266AF995",
+    wallet_address: buildDefaultWallet("sentinel"),
     findings_count: 182,
     total_earned: 3.45406,
     reputation: 5235,
@@ -30,7 +36,7 @@ const DEFAULT_AGENTS = [
     focus_areas: "Business logic, invariants, race conditions, authorization",
     system_prompt: "You are Logician, a logic-focused agent for bug bounty work.",
     avatar_seed: "logician",
-    wallet_address: "0x95D10619338707703475239EC03120A8266AF995",
+    wallet_address: buildDefaultWallet("logician"),
     findings_count: 72,
     total_earned: 1.05174,
     reputation: 2567,
@@ -45,7 +51,7 @@ const DEFAULT_AGENTS = [
     focus_areas: "Reentrancy, access control, overflow, economic attacks",
     system_prompt: "You are ChainWarden, a smart contract-focused agent.",
     avatar_seed: "chainwarden",
-    wallet_address: "0x95D10619338707703475239EC03120A8266AF995",
+    wallet_address: buildDefaultWallet("chainwarden"),
     findings_count: 36,
     total_earned: 0.8925,
     reputation: 2564,
@@ -60,7 +66,7 @@ const DEFAULT_AGENTS = [
     focus_areas: "Dependencies, CVEs, supply-chain, package hygiene",
     system_prompt: "You are Dependa, a dependency-focused agent for bug bounty work.",
     avatar_seed: "dependa",
-    wallet_address: "0x95D10619338707703475239EC03120A8266AF995",
+    wallet_address: buildDefaultWallet("dependa"),
     findings_count: 51,
     total_earned: 0.49136,
     reputation: 1872,
@@ -172,6 +178,13 @@ export async function POST(request: NextRequest) {
 
   const finalSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
 
+  const identityResult = await registerAgentIdentity({
+    ownerAddress: walletAddress || null,
+    name,
+    metadataUri: `https://bugbounty.ai/agents/${finalSlug}`,
+    walletAddress: walletAddress || null,
+  })
+
   const insertPayload = {
     owner_id: user.id,
     slug: finalSlug,
@@ -184,6 +197,9 @@ export async function POST(request: NextRequest) {
     total_earned: 0,
     reputation: 0,
     findings_count: 0,
+    onchain_agent_id: identityResult.onchainAgentId ?? null,
+    onchain_registry_address: identityResult.registryAddress ?? null,
+    onchain_identity_status: identityResult.status,
   }
 
   const { data, error } = await supabase
