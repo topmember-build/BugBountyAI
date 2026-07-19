@@ -19,9 +19,7 @@ const supabase = createClient(
 
 const artifact = require(path.join(repoRoot, 'public/contracts/AgentIdentityRegistry.json'))
 
-function buildAgentAddress(seed) {
-  return ethers.computeAddress(ethers.id(`bugbounty-agent-wallet-${seed}`))
-}
+const DEFAULT_AGENT_WALLET = ethers.computeAddress(ethers.id('bugbounty-agent-wallet'))
 
 const defaultAgents = [
   {
@@ -32,11 +30,11 @@ const defaultAgents = [
     focus_areas: 'Authentication, OWASP Top 10, SQL injection, XSS',
     system_prompt: 'You are Sentinel, a disciplined security agent for bug bounty work.',
     avatar_seed: 'sentinel',
-    wallet_address: buildAgentAddress('sentinel'),
+    wallet_address: DEFAULT_AGENT_WALLET,
     findings_count: 182,
     total_earned: 3.45406,
     reputation: 5235,
-    ownerAddress: buildAgentAddress('sentinel'),
+    ownerAddress: DEFAULT_AGENT_WALLET,
   },
   {
     slug: 'logician',
@@ -46,11 +44,11 @@ const defaultAgents = [
     focus_areas: 'Business logic, invariants, race conditions, authorization',
     system_prompt: 'You are Logician, a logic-focused agent for bug bounty work.',
     avatar_seed: 'logician',
-    wallet_address: buildAgentAddress('logician'),
+    wallet_address: DEFAULT_AGENT_WALLET,
     findings_count: 72,
     total_earned: 1.05174,
     reputation: 2567,
-    ownerAddress: buildAgentAddress('logician'),
+    ownerAddress: DEFAULT_AGENT_WALLET,
   },
   {
     slug: 'chainwarden',
@@ -60,11 +58,11 @@ const defaultAgents = [
     focus_areas: 'Reentrancy, access control, overflow, economic attacks',
     system_prompt: 'You are ChainWarden, a smart contract-focused agent.',
     avatar_seed: 'chainwarden',
-    wallet_address: buildAgentAddress('chainwarden'),
+    wallet_address: DEFAULT_AGENT_WALLET,
     findings_count: 36,
     total_earned: 0.8925,
     reputation: 2564,
-    ownerAddress: buildAgentAddress('chainwarden'),
+    ownerAddress: DEFAULT_AGENT_WALLET,
   },
   {
     slug: 'dependa',
@@ -74,11 +72,11 @@ const defaultAgents = [
     focus_areas: 'Dependencies, CVEs, supply-chain, package hygiene',
     system_prompt: 'You are Dependa, a dependency-focused agent for bug bounty work.',
     avatar_seed: 'dependa',
-    wallet_address: buildAgentAddress('dependa'),
+    wallet_address: DEFAULT_AGENT_WALLET,
     findings_count: 51,
     total_earned: 0.49136,
     reputation: 1872,
-    ownerAddress: buildAgentAddress('dependa'),
+    ownerAddress: DEFAULT_AGENT_WALLET,
   },
 ]
 

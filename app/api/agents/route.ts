@@ -7,9 +7,7 @@ import { registerAgentIdentity } from "@/lib/agent-identity"
 const AGENT_TYPES: AgentType[] = ["security", "logic", "dependency", "smart_contract"]
 const AGENT_SELECT = "id, slug, name, agent_type, description, avatar_seed, wallet_address, focus_areas, system_prompt, findings_count, total_earned, reputation, created_at, onchain_agent_id, onchain_registry_address, onchain_identity_status"
 
-function buildDefaultWallet(seed: string) {
-  return ethers.computeAddress(ethers.id(`bugbounty-agent-wallet-${seed}`))
-}
+const DEFAULT_AGENT_WALLET = ethers.computeAddress(ethers.id("bugbounty-agent-wallet"))
 
 const DEFAULT_AGENTS = [
   {
@@ -21,7 +19,7 @@ const DEFAULT_AGENTS = [
     focus_areas: "Authentication, OWASP Top 10, SQL injection, XSS",
     system_prompt: "You are Sentinel, a disciplined security agent for bug bounty work.",
     avatar_seed: "sentinel",
-    wallet_address: buildDefaultWallet("sentinel"),
+    wallet_address: DEFAULT_AGENT_WALLET,
     findings_count: 182,
     total_earned: 3.45406,
     reputation: 5235,
@@ -36,7 +34,7 @@ const DEFAULT_AGENTS = [
     focus_areas: "Business logic, invariants, race conditions, authorization",
     system_prompt: "You are Logician, a logic-focused agent for bug bounty work.",
     avatar_seed: "logician",
-    wallet_address: buildDefaultWallet("logician"),
+    wallet_address: DEFAULT_AGENT_WALLET,
     findings_count: 72,
     total_earned: 1.05174,
     reputation: 2567,
@@ -51,7 +49,7 @@ const DEFAULT_AGENTS = [
     focus_areas: "Reentrancy, access control, overflow, economic attacks",
     system_prompt: "You are ChainWarden, a smart contract-focused agent.",
     avatar_seed: "chainwarden",
-    wallet_address: buildDefaultWallet("chainwarden"),
+    wallet_address: DEFAULT_AGENT_WALLET,
     findings_count: 36,
     total_earned: 0.8925,
     reputation: 2564,
@@ -66,7 +64,7 @@ const DEFAULT_AGENTS = [
     focus_areas: "Dependencies, CVEs, supply-chain, package hygiene",
     system_prompt: "You are Dependa, a dependency-focused agent for bug bounty work.",
     avatar_seed: "dependa",
-    wallet_address: buildDefaultWallet("dependa"),
+    wallet_address: DEFAULT_AGENT_WALLET,
     findings_count: 51,
     total_earned: 0.49136,
     reputation: 1872,
