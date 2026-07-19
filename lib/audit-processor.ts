@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { analyzeRepository } from "@/lib/analyzer"
 import { calculateReward } from "@/lib/rewards"
 import { refundFee, settleReward } from "@/lib/circle"
-import { notifyContractDeposit, settleContractAudit } from "@/lib/escrow-contract"
+import { isEscrowConfigured, notifyContractDeposit, settleContractAudit } from "@/lib/escrow-contract"
 import { updateAgentReputation } from "@/lib/agent-identity"
 import type { AgentType } from "@/lib/types"
 
@@ -46,6 +46,8 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
   }
 
   try {
+    const auditUuid = claimedAudit.id
+
     let feeQuery = admin
       .from("audit_fees")
       .select("*")
@@ -67,9 +69,9 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
     }
 
     if (feeRow?.id && feeRow?.source_address) {
-      console.log("[audit-processor] Registering contract deposit", { feeId: feeRow.id, sourceAddress: feeRow.source_address, amount: feeRow.amount })
+      console.log("[audit-processor] Registering contract deposit", { feeId: feeRow.id, auditUuid, sourceAddress: feeRow.source_address, amount: feeRow.amount })
       const depositResult = await notifyContractDeposit({
-        auditUuid: feeRow.id,
+        auditUuid,
         depositor: feeRow.source_address,
         amount: Number(feeRow.amount ?? 1),
       })
@@ -228,22 +230,23 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
       const rewardAmount = Number(finding.reward_amount ?? 0)
       const agentId = meta.agentId
       const destinationAddress = meta.destinationAddress
+      const fallbackProvider = isEscrowConfigured() ? "escrow_contract" : "circle_arc"
       let rewardStatus = "failed"
-      let provider = "unknown"
+      let provider = fallbackProvider
       let txHash = null
       let externalId = null
       let settledAt = null
 
       if (destinationAddress && rewardAmount > 0) {
         const settlement = await settleReward({
-          auditUuid: feeRow?.id || claimedAudit.id,
+          auditUuid,
           destinationAddress,
           amount: rewardAmount,
-          idempotencyKey: `${feeRow?.id || claimedAudit.id}:${finding.id}`,
+          idempotencyKey: `${auditUuid}:${finding.id}`,
         })
 
         rewardStatus = settlement.status
-        provider = settlement.provider
+        provider = settlement.provider || fallbackProvider
         txHash = settlement.txHash
         externalId = settlement.externalId
         if (settlement.status === "settled") {
@@ -298,7 +301,7 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
 
     if (feeRow?.id) {
       try {
-        await settleContractAudit({ auditUuid: feeRow.id })
+        await settleContractAudit({ auditUuid })
         await admin.from("audit_fees").update({ status: "settled" }).eq("id", feeRow.id)
       } catch (settleErr) {
         console.warn("[audit-processor] settleContractAudit warning", settleErr)
@@ -341,7 +344,7 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
         await refundFee({
           destinationAddress: feeRow.source_address || "",
           amount: Number(feeRow.amount || 1),
-          idempotencyKey: feeRow.id,
+          idempotencyKey: audit.id,
         })
         await admin.from("audit_fees").update({ status: "refunded" }).eq("id", feeRow.id)
       }

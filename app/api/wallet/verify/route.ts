@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createCircleUser, createUserSession, getUserTransaction } from "@/lib/circle-user"
-import { notifyContractDeposit } from "@/lib/escrow-contract"
 import { getTransactionStatus, transferFromDeveloperWallet, getTreasuryAddress } from "@/lib/circle"
 import { randomUUID } from "crypto"
 
@@ -104,14 +103,10 @@ export async function POST(request: Request) {
                 .eq("id", feeRow.id)
 
               if (feeRow.source_address) {
-                const depositResult = await notifyContractDeposit({
-                  auditUuid: feeRow.id,
-                  depositor: feeRow.source_address,
-                  amount: Number(feeRow.amount ?? 1),
+                console.log("[bridge] Fee payment is settled; audit processing will register the escrow deposit once the audit exists", {
+                  feeId: feeRow.id,
+                  sourceAddress: feeRow.source_address,
                 })
-                if (depositResult.error) {
-                  console.warn("[escrow] verify: notifyContractDeposit failed (non-fatal)", depositResult.error)
-                }
               }
               return NextResponse.json({ status: "COMPLETE", txHash: devStatus.txHash })
             } else if (devStatus.status === "failed") {

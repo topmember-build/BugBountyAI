@@ -92,7 +92,7 @@ if (!queued) {
 
     if (feeRow.source_address) {
       const depositResult = await notifyContractDeposit({
-        auditUuid: feeRow.id,
+        auditUuid: claimedAudit.id,
         depositor: feeRow.source_address,
         amount: Number(feeRow.amount ?? 1),
       })
@@ -226,10 +226,10 @@ if (!queued) {
 
       if (destinationAddress && rewardAmount > 0) {
         const settlement = await settleReward({
-          auditUuid: feeRow.id,
+          auditUuid: claimedAudit.id,
           destinationAddress,
           amount: rewardAmount,
-          idempotencyKey: `${feeRow.id}:${finding.id}`,
+          idempotencyKey: `${claimedAudit.id}:${finding.id}`,
         })
 
         rewardStatus = settlement.status
