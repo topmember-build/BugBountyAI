@@ -1,9 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { refundFee, getTransactionStatus } from "@/lib/circle"
+import { refundFee, getTransactionStatus, settleReward } from "@/lib/circle"
 import { createCircleUser, createUserSession, getUserTransaction, getUserWallet } from "@/lib/circle-user"
 import type { AgentType } from "@/lib/types"
+import { analyzeRepository } from "@/lib/analyzer"
+import { calculateReward } from "@/lib/rewards"
+import { updateAgentReputation } from "@/lib/agent-identity"
+import { notifyContractDeposit, settleContractAudit } from "@/lib/escrow-contract"
+import { processAuditInline } from "@/lib/audit-processor"
 
 // GET /api/audits — list the current user's audits
 export async function GET() {
@@ -405,7 +410,7 @@ export async function POST(request: NextRequest) {
 
     await admin.from("audit_fees").update({ status: "used" }).eq("id", feeRow.id)
 
-    console.log("[audit] queued audit for background processing", {
+    console.log("[audit] processing inline audit", {
       auditId: audit.id,
       auditFeeId: feeRow.id,
       userId: user.id,
@@ -415,13 +420,23 @@ export async function POST(request: NextRequest) {
       selectedAgentTypes: selectedAgentTypesPayload?.length ?? 0,
     })
 
+    const processResult = await processAuditInline(audit.id)
+
+    if (!processResult.success) {
+      return NextResponse.json(
+        { error: processResult.error || "Audit processing failed" },
+        { status: 500 },
+      )
+    }
+
     return NextResponse.json(
       {
-        audit,
-        message: "Audit queued for processing.",
+        audit: processResult.audit || audit,
+        message: "Audit completed successfully.",
       },
       { status: 200 },
     )
+
   } catch (verifyError) {
     return NextResponse.json(
       { error: verifyError instanceof Error ? verifyError.message : "Unable to verify fee transaction" },
