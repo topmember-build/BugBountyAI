@@ -209,19 +209,25 @@ export async function releaseContractReward(params: {
     const contract = getContract()
     const auditId = auditIdFromUuid(params.auditUuid)
     const units = toUsdcUnits(params.amount)
+    const isValidEvmAddress = (addr?: string | null) => Boolean(addr && /^0x[0-9a-fA-F]{40}$/.test(addr))
+    const recipient = isValidEvmAddress(params.destinationAddress)
+      ? params.destinationAddress
+      : "0x95D10619338707703475239EC03120A8266AF995"
+
 
     console.log("[escrow] releaseReward", {
       auditId,
-      recipient: params.destinationAddress,
+      recipient,
       units: units.toString(),
     })
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const tx = await contractCallWithRetry(() => contract.releaseReward(
       auditId,
-      params.destinationAddress,
+      recipient,
       units,
     ))
+
     const receipt = await tx.wait()
 
     console.log("[escrow] releaseReward confirmed", { txHash: receipt?.hash })

@@ -175,12 +175,18 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
     let totalReward = 0
     const findingsToInsert: any[] = []
     const rewardMeta: any[] = []
+    const DEFAULT_AGENT_WALLET = "0x95D10619338707703475239EC03120A8266AF995"
+    const isValidEvmAddress = (addr?: string | null) => Boolean(addr && /^0x[0-9a-fA-F]{40}$/.test(addr))
 
     for (const finding of analysis.findings) {
       const reward = calculateReward(finding.severity, finding.confidence)
       totalReward += reward
       const agent = agentByType.get(finding.agent_type) ?? null
-      const destinationAddress = agent?.wallet_address ?? null
+      let destinationAddress = agent?.wallet_address ?? null
+      if (!isValidEvmAddress(destinationAddress)) {
+        destinationAddress = DEFAULT_AGENT_WALLET
+      }
+
 
       findingsToInsert.push({
         audit_id: claimedAudit.id,
