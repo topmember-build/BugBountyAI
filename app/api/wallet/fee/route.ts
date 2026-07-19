@@ -78,7 +78,7 @@ export async function POST(request: Request) {
         walletId: wallet.walletId,
         tokenId: balance.tokenId,
         amount: FEE_AMOUNT,
-        destinationAddress: devWalletAddress, // Send to dev wallet EOA!
+        destinationAddress: treasuryAddress, // Send directly to Escrow contract!
         idempotencyKey,
       })
     } catch (err) {
@@ -88,13 +88,14 @@ export async function POST(request: Request) {
           walletId: wallet.walletId,
           tokenId: balance.tokenId,
           amount: FEE_AMOUNT,
-          destinationAddress: devWalletAddress,
+          destinationAddress: treasuryAddress,
           idempotencyKey,
           error: err instanceof Error ? err.message : err,
         })
       } catch (logErr) {
         console.error("Failed to log createFeeTransferChallenge error", logErr)
       }
+
 
       return NextResponse.json({ error: `Circle createTransaction failed: ${err instanceof Error ? err.message : String(err)}` }, { status: 502 })
     }
