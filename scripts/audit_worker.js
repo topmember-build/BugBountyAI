@@ -11,12 +11,18 @@ const { notifyContractDeposit, settleContractAudit } = require('../lib/escrow-co
 const { createCircleUser, createUserSession, getUserTransaction, getUserWallet } = require('../lib/circle-user')
 const { updateAgentReputation } = require('../lib/agent-identity')
 
+const POLL_INTERVAL_MS = 30000
+const FEE_PENDING_DELAY_MS = 30000
+
 async function sleep(ms) { return new Promise((r) => setTimeout(r, ms)) }
 
 async function processOne() {
   const admin = createAdminClient()
   const { data: queued } = await admin.from('audits').select('*').eq('status', 'queued').order('created_at', { ascending: true }).limit(1).maybeSingle()
-  if (!queued) return false
+if (!queued) {
+      await sleep(POLL_INTERVAL_MS)
+      return false
+    }
 
   const audit = queued
   console.log('[worker] Attempting to claim audit', audit.id)
@@ -45,13 +51,18 @@ async function processOne() {
   console.log('[worker] Processing claimed audit', claimedAudit.id)
 
   try {
-    const { data: feeRow } = await admin
+    let feeQuery = admin
       .from('audit_fees')
       .select('*')
       .eq('user_id', claimedAudit.user_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+
+    if (claimedAudit.audit_fee_id) {
+      feeQuery = feeQuery.eq('id', claimedAudit.audit_fee_id)
+    } else {
+      feeQuery = feeQuery.order('created_at', { ascending: false }).limit(1)
+    }
+
+    const { data: feeRow } = await feeQuery.maybeSingle()
 
     if (!feeRow) {
       throw new Error('No audit fee row found for user')
@@ -72,6 +83,7 @@ async function processOne() {
     if (feeRow.status !== 'settled') {
       console.warn('[worker] Fee row not yet settled, delaying audit', { auditId: claimedAudit.id, feeRowStatus: feeRow.status })
       await admin.from('audits').update({ status: 'queued' }).eq('id', claimedAudit.id)
+      await sleep(FEE_PENDING_DELAY_MS)
       return false
     }
 
@@ -86,13 +98,76 @@ async function processOne() {
       }
     }
 
+    const selectedAgentIds = Array.isArray(claimedAudit.selected_agent_ids)
+      ? claimedAudit.selected_agent_ids.filter((id) => typeof id === 'string' && id.trim().length > 0)
+      : []
+    const selectedAgentTypes = Array.isArray(claimedAudit.selected_agent_types)
+      ? claimedAudit.selected_agent_types.filter((type) => typeof type === 'string' && type.trim().length > 0)
+      : []
+
+    const selectedAgentsForAnalysis = []
+
+    if (selectedAgentIds.length > 0) {
+      const validSelectedAgentIds = Array.from(new Set(selectedAgentIds.map((id) => id.trim()).filter(Boolean)))
+      const isUuid = (value) =>
+        /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(value)
+
+      const uuidAgentIds = validSelectedAgentIds.filter(isUuid)
+      const slugAgentIds = validSelectedAgentIds
+        .filter((id) => !isUuid(id))
+        .flatMap((id) => (id.startsWith('default-') ? [id, id.replace(/^default-/, '')] : [id]))
+
+      const selectedAgentRows = []
+      if (uuidAgentIds.length > 0) {
+        const { data: uuidRows, error: uuidError } = await admin
+          .from('agents')
+          .select('id, name, agent_type, system_prompt, focus_areas')
+          .in('id', uuidAgentIds)
+
+        if (uuidError) {
+          throw new Error(`Failed to load selected agents by uuid: ${uuidError.message || String(uuidError)}`)
+        }
+        selectedAgentRows.push(...(uuidRows || []))
+      }
+
+      if (slugAgentIds.length > 0) {
+        const { data: slugRows, error: slugError } = await admin
+          .from('agents')
+          .select('id, name, agent_type, system_prompt, focus_areas')
+          .in('slug', Array.from(new Set(slugAgentIds)))
+
+        if (slugError) {
+          throw new Error(`Failed to load selected agents by slug: ${slugError.message || String(slugError)}`)
+        }
+        selectedAgentRows.push(...(slugRows || []))
+      }
+
+      if (selectedAgentRows.length === 0) {
+        throw new Error('Unable to resolve selected agents for queued audit.')
+      }
+
+      const seenAgentIds = new Set()
+      for (const agentRow of selectedAgentRows) {
+        if (!agentRow.agent_type || seenAgentIds.has(agentRow.id)) continue
+        seenAgentIds.add(agentRow.id)
+        selectedAgentsForAnalysis.push({
+          agent_type: agentRow.agent_type,
+          name: agentRow.name,
+          system_prompt: agentRow.system_prompt ?? null,
+          focus_areas: agentRow.focus_areas ?? null,
+        })
+      }
+    } else if (selectedAgentTypes.length > 0) {
+      selectedAgentsForAnalysis.push(...selectedAgentTypes)
+    }
+
     const analysis = await analyzeRepository({
       repoUrl: claimedAudit.repo_url,
       branch: claimedAudit.branch,
       contractCode: claimedAudit.contract_code || undefined,
       contractFilename: claimedAudit.contract_filename || undefined,
       archiveFilename: claimedAudit.archive_filename || undefined,
-      selectedAgents: [],
+      selectedAgents: selectedAgentsForAnalysis,
     })
 
     let totalReward = 0

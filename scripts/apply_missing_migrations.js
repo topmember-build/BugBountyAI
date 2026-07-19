@@ -49,6 +49,10 @@ async function run() {
   ALTER TABLE IF EXISTS public.audits ADD COLUMN IF NOT EXISTS archive_path text;
   ALTER TABLE IF EXISTS public.audits ADD COLUMN IF NOT EXISTS archive_filename text;
   ALTER TABLE IF EXISTS public.audits ADD COLUMN IF NOT EXISTS archive_uploaded_at timestamptz;
+  ALTER TABLE IF EXISTS public.audits ADD COLUMN IF NOT EXISTS started_at timestamptz;
+  ALTER TABLE IF EXISTS public.audits ADD COLUMN IF NOT EXISTS audit_fee_id uuid;
+  ALTER TABLE IF EXISTS public.audits ADD COLUMN IF NOT EXISTS selected_agent_ids text[];
+  ALTER TABLE IF EXISTS public.audits ADD COLUMN IF NOT EXISTS selected_agent_types text[];
 
   ALTER TABLE IF EXISTS public.agents ADD COLUMN IF NOT EXISTS owner_id text NOT NULL DEFAULT '';
   ALTER TABLE IF EXISTS public.agents ADD COLUMN IF NOT EXISTS focus_areas text;
