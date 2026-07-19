@@ -81,6 +81,9 @@ if (!queued) {
     }
 
     if (feeRow.status !== 'settled' && feeRow.status !== 'used') {
+      if (!claimedAudit.audit_fee_id) {
+        throw new Error('Audit lacks audit_fee_id and resolved fee row is not settled/used')
+      }
       console.warn('[worker] Fee row not yet settled, delaying audit', { auditId: claimedAudit.id, feeRowStatus: feeRow.status })
       await admin.from('audits').update({ status: 'queued' }).eq('id', claimedAudit.id)
       await sleep(FEE_PENDING_DELAY_MS)
