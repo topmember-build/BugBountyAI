@@ -389,9 +389,20 @@ export function AgentRegistryPanel() {
                     {agent.onchain_identity_status ? (
                       <Badge variant="outline">Onchain: {agent.onchain_identity_status}</Badge>
                     ) : null}
-                    {agent.onchain_registry_address ? (
-                      <span className="font-mono">{agent.onchain_registry_address}</span>
-                    ) : null}
+                      {agent.onchain_registry_address ? (
+                        (process.env.NEXT_PUBLIC_AGENT_IDENTITY_EXPLORER ? (
+                          <a
+                            href={`${process.env.NEXT_PUBLIC_AGENT_IDENTITY_EXPLORER.replace(/\/$/, '')}/address/${agent.onchain_registry_address}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-mono text-primary underline underline-offset-2"
+                          >
+                            {agent.onchain_registry_address}
+                          </a>
+                        ) : (
+                          <span className="font-mono">{agent.onchain_registry_address}</span>
+                        ))
+                      ) : null}
                   </div>
                 </div>
               ))}

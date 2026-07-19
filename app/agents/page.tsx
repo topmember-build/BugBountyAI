@@ -25,9 +25,10 @@ export default function AgentsPage() {
   const [onchainDetails, setOnchainDetails] = useState<any>(null)
   const [onchainLoading, setOnchainLoading] = useState(false)
   const { data, error, isLoading } = useSWR<{ agents: Agent[] }>("/api/agents", fetcher, {
-    refreshInterval: 20000,
+    const [onchainLoading, setOnchainLoading] = useState(false)
   })
   const agents = data?.agents ?? []
+  const explorerBase = process.env.NEXT_PUBLIC_AGENT_IDENTITY_EXPLORER ?? null
 
   const selectedCount = selectedAgentIds.length
   const agentIdsQuery = useMemo(
@@ -50,6 +51,8 @@ export default function AgentsPage() {
       const response = await fetch(`/api/agents/${agent.slug}/onchain`)
       const payload = await response.json()
       setOnchainDetails(payload)
+      // update selectedAgent with the authoritative agent row from the server
+      if (payload?.agent) setSelectedAgent(payload.agent)
     } catch {
       setOnchainDetails({ error: "Unable to load on-chain details." })
     } finally {
@@ -195,6 +198,29 @@ export default function AgentsPage() {
                                   <span className="font-mono text-xs">n/a</span>
                                 )}
                               </div>
+                              {explorerBase && selectedAgent?.onchain_registry_address ? (
+                                <div className="mt-2">
+                                  {selectedAgent?.onchain_agent_id ? (
+                                    <a
+                                      href={`${explorerBase.replace(/\/$/,"")}/token/${selectedAgent.onchain_registry_address}?a=${selectedAgent.onchain_agent_id}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-sm text-primary underline"
+                                    >
+                                      View on explorer
+                                    </a>
+                                  ) : (
+                                    <a
+                                      href={`${explorerBase.replace(/\/$/,"")}/address/${selectedAgent.onchain_registry_address}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-sm text-primary underline"
+                                    >
+                                      View registry on explorer
+                                    </a>
+                                  )}
+                                </div>
+                              ) : null}
                             </div>
                           </>
                         )}
