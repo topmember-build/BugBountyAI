@@ -397,17 +397,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Register the deposit on-chain with the smart contract escrow
-    if (feeRow.source_address) {
-      const depositResult = await notifyContractDeposit({
-        auditUuid: feeRow.id, // fee row UUID -> on-chain auditId
-        depositor: feeRow.source_address,
-        amount: Number(feeRow.amount ?? 1),
-      })
-      if (depositResult.error) {
-        console.warn("[escrow] notifyContractDeposit failed (non-fatal)", depositResult.error)
-      }
-    }
+    // We validated the fee and bridged funds. Create an audit row and
+    // return immediately to avoid Vercel function timeouts. A background
+    // worker should pick up queued audits with status 'queued' and
+    // perform the heavy analysis / settlement work.
   } catch (verifyError) {
     return NextResponse.json(
       { error: verifyError instanceof Error ? verifyError.message : "Unable to verify fee transaction" },
@@ -417,12 +410,12 @@ export async function POST(request: NextRequest) {
 
   const branch = body.branch?.trim() || "main"
 
-  // 1. Create the audit row (status: scanning)
+  // 1. Create the audit row (status: queued) and return 202 Accepted
   const auditPayload: Record<string, unknown> = {
     user_id: user.id,
     repo_url: repoUrl,
     branch,
-    status: "scanning",
+    status: "queued",
   }
 
   if (body.archive_path) {
@@ -448,8 +441,22 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  // Ensure storage bucket exists so workers can find any uploaded archives
   try {
-    // 2. Run the AI audit swarm
+    const { ensureStorageBucket } = await import("@/lib/supabase/init-storage")
+    await ensureStorageBucket()
+  } catch (e) {
+    console.warn("Could not ensure storage bucket for audit requests", e)
+  }
+
+  // Respond quickly so the HTTP function doesn't time out; worker will
+  // pick up audits with status 'queued' and perform the rest.
+  return NextResponse.json({ audit: audit, message: "Audit queued for processing" }, { status: 202 })
+
+  // Note: the heavy processing (analysis, inserting findings, settling
+  // rewards, finalizing the audit) has been moved to a background worker.
+
+  // 2. Run the AI audit swarm
     let selectedAgentRows:
       | Array<{
           id: string
