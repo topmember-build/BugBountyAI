@@ -63,7 +63,10 @@ let developerClient: ReturnType<typeof initiateDeveloperControlledWalletsClient>
 
 function getUserClient() {
   if (!userClient) {
-    userClient = initiateUserControlledWalletsClient({ apiKey: CIRCLE_API_KEY! })
+    if (!CIRCLE_API_KEY) {
+      throw new Error("Circle user wallet credentials are not configured.")
+    }
+    userClient = initiateUserControlledWalletsClient({ apiKey: CIRCLE_API_KEY })
   }
   return userClient
 }
@@ -71,7 +74,7 @@ function getUserClient() {
 function getDeveloperClient() {
   if (!developerClient) {
     if (!CIRCLE_API_KEY || !CIRCLE_ENTITY_SECRET) {
-      throw new Error("Circle faucet credentials are not configured")
+      throw new Error("Circle developer wallet credentials are not configured.")
     }
     developerClient = initiateDeveloperControlledWalletsClient({
       apiKey: CIRCLE_API_KEY,
@@ -275,7 +278,12 @@ export async function createFeeTransferChallenge(params: {
       tokenId: params.tokenId,
       destinationAddress: params.destinationAddress,
       amounts: [params.amount.toFixed(6)],
-      fee: { type: "level", config: { feeLevel: "MEDIUM" } },
+      fee: {
+        type: "level",
+        config: {
+          feeLevel: "MEDIUM",
+        },
+      },
       idempotencyKey: params.idempotencyKey,
     })
 

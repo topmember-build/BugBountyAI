@@ -54,9 +54,12 @@ let circleClient: ReturnType<typeof initiateDeveloperControlledWalletsClient> | 
 
 function getCircleClient() {
   if (!circleClient) {
+    if (!CIRCLE_API_KEY || !CIRCLE_ENTITY_SECRET) {
+      throw new Error("Circle developer wallet credentials are not configured.")
+    }
     circleClient = initiateDeveloperControlledWalletsClient({
-      apiKey: CIRCLE_API_KEY!,
-      entitySecret: CIRCLE_ENTITY_SECRET!,
+      apiKey: CIRCLE_API_KEY,
+      entitySecret: CIRCLE_ENTITY_SECRET,
     })
   }
   return circleClient
@@ -104,7 +107,12 @@ async function buildTransferPayload(params: {
     walletId: CIRCLE_WALLET_ID!,
     destinationAddress: params.destinationAddress,
     amounts: [params.amount.toFixed(6)],
-    feeLevel: "MEDIUM" as const,
+    fee: {
+      type: "level",
+      config: {
+        feeLevel: "MEDIUM",
+      },
+    },
     idempotencyKey: normalizeIdempotencyKey(params.idempotencyKey),
   }
 

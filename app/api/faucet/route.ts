@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { createUserSession, getUserWallet, requestCircleTestnetUsdcFaucet } from "@/lib/circle-user"
+import { createUserSession, getUserWallet, isCircleUserConfigured, requestCircleTestnetUsdcFaucet } from "@/lib/circle-user"
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -49,6 +49,13 @@ export async function POST(request: Request) {
 
     // If no address saved, attempt to query Circle via a short-lived user token
     if (!address) {
+      if (!isCircleUserConfigured()) {
+        return NextResponse.json(
+          { error: "Circle user wallet credentials are not configured on the server." },
+          { status: 503 },
+        )
+      }
+
       try {
         const { userToken } = await createUserSession(user.id)
         const walletInfo = await getUserWallet(userToken)
