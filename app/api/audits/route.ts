@@ -423,6 +423,11 @@ export async function POST(request: NextRequest) {
     const processResult = await processAuditInline(audit.id)
 
     if (!processResult.success) {
+      console.error("Audit processing failed", {
+        auditId: audit.id,
+        userId: user.id,
+        error: processResult.error,
+      })
       return NextResponse.json(
         { error: processResult.error || "Audit processing failed" },
         { status: 500 },
@@ -438,6 +443,11 @@ export async function POST(request: NextRequest) {
     )
 
   } catch (verifyError) {
+    console.error("Audit verification failed", {
+      userId: user.id,
+      feeTransactionId,
+      error: verifyError instanceof Error ? verifyError.stack || verifyError.message : String(verifyError),
+    })
     return NextResponse.json(
       { error: verifyError instanceof Error ? verifyError.message : "Unable to verify fee transaction" },
       { status: 502 },
