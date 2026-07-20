@@ -94,7 +94,13 @@ function getSigner(): EthersSigner {
 
 async function getSignerBalance(): Promise<bigint> {
   const signer = getSigner()
-  return await signer.getBalance()
+  const provider = signer.provider
+  if (!provider) {
+    throw new Error("[escrow] signer provider is not available")
+  }
+
+  const address = await signer.getAddress()
+  return await provider.getBalance(address)
 }
 
 function getContract(): EthersContract {
