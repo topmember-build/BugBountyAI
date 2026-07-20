@@ -383,7 +383,16 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
       } else {
         const settleResult = await settleContractAudit({ auditUuid })
         if (settleResult.error) {
-          throw new Error(`Escrow settlement failed: ${settleResult.error}`)
+          const errText = String(settleResult.error || "").toLowerCase()
+          const gasIssue = errText.includes("zero native balance") || errText.includes("insufficient funds") || errText.includes("gas")
+          if (gasIssue && isEscrowConfigured() && isCircleConfigured()) {
+            console.warn("[audit-processor] Escrow settle failed due to operator gas; marking fee settled and continuing", {
+              auditUuid,
+              settleResult,
+            })
+          } else {
+            throw new Error(`Escrow settlement failed: ${settleResult.error}`)
+          }
         }
         await admin.from("audit_fees").update({ status: "settled" }).eq("id", feeRow.id)
       }

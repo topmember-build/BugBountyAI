@@ -139,10 +139,17 @@ export async function settleReward(req: SettlementRequest): Promise<SettlementRe
     })
 
     const fallbackError = String(result.error || "").toLowerCase()
-    const couldNotPayGas = fallbackError.includes("zero native balance") || fallbackError.includes("insufficient funds") || fallbackError.includes("gas")
+    const shouldFallbackToCircle = isCircleConfigured() && (
+      fallbackError.includes("zero native balance") ||
+      fallbackError.includes("insufficient funds") ||
+      fallbackError.includes("gas") ||
+      fallbackError.includes("no escrow") ||
+      fallbackError.includes("not found") ||
+      fallbackError.includes("deposit")
+    )
 
-    if (result.status === "failed" && couldNotPayGas && isCircleConfigured()) {
-      console.warn("[circle] settleReward: escrow contract settlement failed due to operator gas; falling back to Circle transfer", {
+    if (result.status === "failed" && shouldFallbackToCircle) {
+      console.warn("[circle] settleReward: escrow contract settlement failed; falling back to Circle transfer", {
         auditUuid: req.auditUuid,
         error: result.error,
       })
