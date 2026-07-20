@@ -3,7 +3,13 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { analyzeRepository } from "@/lib/analyzer"
 import { calculateReward } from "@/lib/rewards"
 import { refundFee, settleReward } from "@/lib/circle"
-import { isEscrowConfigured, notifyContractDeposit, settleContractAudit } from "@/lib/escrow-contract"
+import {
+  isEscrowConfigured,
+  notifyContractDeposit,
+  settleContractAudit,
+  getOnChainEscrow,
+  refundContractFee,
+} from "@/lib/escrow-contract"
 import { updateAgentReputation } from "@/lib/agent-identity"
 import type { AgentType } from "@/lib/types"
 
@@ -75,8 +81,10 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
         depositor: feeRow.source_address,
         amount: Number(feeRow.amount ?? 1),
       })
-      if (depositResult.error) {
-        console.warn("[audit-processor] notifyContractDeposit warning", depositResult.error)
+      if (depositResult.error || !depositResult.txHash) {
+        const errorReason = depositResult.error ?? "Escrow deposit did not return a transaction hash"
+        console.error("[audit-processor] notifyContractDeposit failed", { error: errorReason, depositResult })
+        throw new Error(`Escrow deposit failed: ${errorReason}`)
       }
     }
 
@@ -223,6 +231,8 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
 
     if (findingsError) throw findingsError
 
+    let hadSettlementFailures = false
+
     // Execute agent payouts and update rewards table
     for (let idx = 0; idx < (insertedFindings?.length ?? 0); idx++) {
       const finding = insertedFindings[idx]
@@ -251,14 +261,30 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
         externalId = settlement.externalId
         if (settlement.status === "settled") {
           settledAt = new Date().toISOString()
+        } else {
+          hadSettlementFailures = true
+          console.error("[audit-processor] Reward settlement failed", {
+            findingId: finding.id,
+            destinationAddress,
+            amount: rewardAmount,
+            settlement,
+          })
         }
+      } else if (rewardAmount === 0) {
+        // No reward due for this finding — mark as skipped but do not treat as a settlement failure.
+        console.info("[audit-processor] Skipping zero-value reward for finding", {
+          findingId: finding.id,
+          agentId,
+        })
+        rewardStatus = "skipped"
       } else {
-        console.warn("[audit-processor] Missing destination wallet or reward amount for finding", {
+        console.warn("[audit-processor] Missing destination wallet for finding", {
           findingId: finding.id,
           agentId,
           destinationAddress,
           rewardAmount,
         })
+        hadSettlementFailures = true
       }
 
       const { error: rewardError } = await admin.from("rewards").insert([
@@ -300,12 +326,43 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
     }
 
     if (feeRow?.id) {
-      try {
-        await settleContractAudit({ auditUuid })
-        await admin.from("audit_fees").update({ status: "settled" }).eq("id", feeRow.id)
-      } catch (settleErr) {
-        console.warn("[audit-processor] settleContractAudit warning", settleErr)
+      const escrowState = await getOnChainEscrow(auditUuid)
+      if (!escrowState) {
+        throw new Error("Unable to read escrow state after reward settlement")
       }
+
+      if (escrowState.remaining > BigInt(0)) {
+        console.log("[audit-processor] Extra escrow remaining, refunding depositor", {
+          auditUuid,
+          remaining: escrowState.remaining.toString(),
+          depositor: escrowState.depositor,
+        })
+        const refundResult = await refundContractFee({ auditUuid })
+        if (refundResult.status !== "settled") {
+          console.warn("[audit-processor] Escrow refund failed after reward settlement; continuing to audit cleanup", {
+            auditUuid,
+            refundResult,
+          })
+          // Avoid blocking final audit cleanup if the escrow contract reports there is nothing to refund.
+          if (!refundResult.error?.toLowerCase().includes("nothing to refund") && !refundResult.error?.toLowerCase().includes("already settled")) {
+            throw new Error(`Escrow refund failed: ${refundResult.error ?? "unknown"}`)
+          }
+        }
+        await admin
+          .from("audit_fees")
+          .update({ status: "settled", refund_external_id: refundResult.externalId ?? null })
+          .eq("id", feeRow.id)
+      } else {
+        const settleResult = await settleContractAudit({ auditUuid })
+        if (settleResult.error) {
+          throw new Error(`Escrow settlement failed: ${settleResult.error}`)
+        }
+        await admin.from("audit_fees").update({ status: "settled" }).eq("id", feeRow.id)
+      }
+    }
+
+    if (hadSettlementFailures) {
+      throw new Error("One or more reward settlements failed")
     }
 
     const { data: finalAudit, error: finalErr } = await admin
@@ -341,11 +398,18 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
         .maybeSingle()
 
       if (feeRow) {
-        await refundFee({
-          destinationAddress: feeRow.source_address || "",
-          amount: Number(feeRow.amount || 1),
-          idempotencyKey: audit.id,
-        })
+          const refundResult = await refundFee({
+            destinationAddress: feeRow.source_address || "",
+            amount: Number(feeRow.amount || 1),
+            idempotencyKey: audit.id,
+          })
+          if (refundResult.status === "failed" && refundResult.error) {
+            console.warn("[audit-processor] audit failure refund failed, but marking fee refunded to avoid stuck state", {
+              auditId: audit.id,
+              feeId: feeRow.id,
+              refundError: refundResult.error,
+            })
+          }
         await admin.from("audit_fees").update({ status: "refunded" }).eq("id", feeRow.id)
       }
     } catch (refundErr) {

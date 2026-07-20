@@ -1,0 +1,20 @@
+name: Run notify-retries
+
+on:
+  schedule:
+    - cron: '*/15 * * * *' # every 15 minutes
+  workflow_dispatch: {}
+
+jobs:
+  run-notify-retries:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger notify-retries endpoint
+        env:
+          NOTIFY_RETRIES_URL: ${{ secrets.NOTIFY_RETRIES_URL }}
+        run: |
+          if [ -z "$NOTIFY_RETRIES_URL" ]; then
+            echo "Missing NOTIFY_RETRIES_URL secret"; exit 1
+          fi
+          echo "Calling $NOTIFY_RETRIES_URL"
+          curl -X POST -sS "$NOTIFY_RETRIES_URL" -H "Accept: application/json" -d '{}' || true

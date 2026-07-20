@@ -428,6 +428,11 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         error: processResult.error,
       })
+
+      if (feeRow) {
+        await refundAuditFee(feeRow, "audit_failed")
+      }
+
       return NextResponse.json(
         { error: processResult.error || "Audit processing failed" },
         { status: 500 },

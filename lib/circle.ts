@@ -318,6 +318,28 @@ export async function refundFee(params: {
     const result: EscrowFundingResult = await refundContractFee({
       auditUuid: params.idempotencyKey,
     })
+    const fallbackError = String(result.error || "").toLowerCase()
+    const shouldFallbackToCircle = isCircleConfigured() && (
+      fallbackError.includes("nothing to refund") ||
+      fallbackError.includes("already settled") ||
+      fallbackError.includes("not found") ||
+      fallbackError.includes("no escrow")
+    )
+
+    if (result.status === "failed" && shouldFallbackToCircle) {
+      console.warn("[circle] refundFee: escrow refund failed with no on-chain funds, falling back to Circle wallet refund", {
+        auditUuid: params.idempotencyKey,
+        error: result.error,
+      })
+      const backupResult = await fundUserWallet(params)
+      console.log("[circle] refundFee fallback result", {
+        status: backupResult.status,
+        externalId: backupResult.externalId,
+        simulated: backupResult.simulated,
+        error: backupResult.error,
+      })
+      return backupResult
+    }
     console.log("[escrow] refundFee result", result)
     return result
   }

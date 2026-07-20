@@ -74,6 +74,12 @@ let _provider: EthersProvider | null = null
 let _signer: EthersSigner | null = null
 let _contract: EthersContract | null = null
 
+function resetProviderState() {
+  _contract = null
+  _signer = null
+  _provider = null
+}
+
 function getProvider(): EthersProvider {
   if (!_provider) {
     const rpcUrl = process.env.ESCROW_RPC_URL
@@ -145,11 +151,18 @@ async function contractCallWithRetry<T>(fn: () => Promise<T>, retries = 5, delay
     } catch (err: any) {
       const msg = String(err.message || err || "")
       const isRateLimit = msg.includes("request limit reached") || msg.includes("429") || (err.code === -32011) || (err.info?.error?.code === -32011)
-      if (isRateLimit && i < retries - 1) {
-        console.warn(`[escrow] RPC rate limit hit. Retrying in ${delayMs}ms... (Attempt ${i + 1}/${retries})`)
+      const isTimeout = msg.includes("timeout") || msg.includes("TIMEOUT") || msg.includes("request timeout")
+      const isNetworkError = msg.includes("JsonRpcProvider failed to detect network") || msg.includes("NETWORK_ERROR") || msg.includes("Failed to fetch")
+
+      if ((isRateLimit || isTimeout || isNetworkError) && i < retries - 1) {
+        console.warn(`[escrow] Transient RPC failure detected. Resetting provider and retrying in ${delayMs}ms... (Attempt ${i + 1}/${retries})`, {
+          error: msg,
+        })
+        resetProviderState()
         await new Promise((resolve) => setTimeout(resolve, delayMs))
         continue
       }
+
       throw err
     }
   }
@@ -194,11 +207,14 @@ export async function notifyContractDeposit(params: {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const tx = await contractCallWithRetry(() => contract.notifyDeposit(
-      auditId,
-      params.depositor,
-      units,
-    ))
+    const tx = await contractCallWithRetry(async () => {
+      const freshContract = getContract()
+      return freshContract.notifyDeposit(
+        auditId,
+        params.depositor,
+        units,
+      )
+    })
     const receipt = await tx.wait()
 
     console.log("[escrow] notifyDeposit confirmed", { txHash: receipt?.hash })
@@ -314,7 +330,10 @@ export async function refundContractFee(params: {
     console.log("[escrow] refund", { auditId })
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const tx = await contractCallWithRetry(() => contract.refund(auditId))
+    const tx = await contractCallWithRetry(async () => {
+      const freshContract = getContract()
+      return freshContract.refund(auditId)
+    })
     const receipt = await tx.wait()
 
     console.log("[escrow] refund confirmed", { txHash: receipt?.hash })
@@ -354,7 +373,10 @@ export async function settleContractAudit(params: {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const tx = await contract.settle(auditId)
+    const tx = await contractCallWithRetry(async () => {
+      const freshContract = getContract()
+      return freshContract.settle(auditId)
+    })
     const receipt = await tx.wait()
 
     return { txHash: receipt?.hash ?? null }
