@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server"
 import { isCircleConfigured } from "@/lib/circle"
 import { isCircleUserConfigured } from "@/lib/circle-user"
-import { isEscrowConfigured } from "@/lib/escrow-contract"
+import { isEscrowConfigured, getEscrowOperatorStatus } from "@/lib/escrow-contract"
 
 export async function GET() {
+  const operatorStatus = await getEscrowOperatorStatus()
   const missing = {
     SUPABASE_URL: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL),
     SUPABASE_ANON_KEY: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY),
@@ -23,6 +24,7 @@ export async function GET() {
     isCircleConfigured: isCircleConfigured(),
     isCircleUserConfigured: isCircleUserConfigured(),
     isEscrowConfigured: isEscrowConfigured(),
+    escrowOperator: operatorStatus,
     env: missing,
     timestamp: new Date().toISOString(),
   })

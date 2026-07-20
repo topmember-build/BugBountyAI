@@ -83,8 +83,15 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
       })
       if (depositResult.error || !depositResult.txHash) {
         const errorReason = depositResult.error ?? "Escrow deposit did not return a transaction hash"
-        console.error("[audit-processor] notifyContractDeposit failed", { error: errorReason, depositResult })
-        throw new Error(`Escrow deposit failed: ${errorReason}`)
+        const normalizedError = String(errorReason).toLowerCase()
+        const gasIssue = normalizedError.includes("zero native balance") || normalizedError.includes("insufficient funds") || normalizedError.includes("gas")
+        console.warn("[audit-processor] notifyContractDeposit failed", { error: errorReason, depositResult, gasIssue })
+
+        if (gasIssue && isCircleConfigured()) {
+          console.warn("[audit-processor] Continuing audit with Circle fallback because escrow operator gas is unavailable", { auditUuid })
+        } else {
+          throw new Error(`Escrow deposit failed: ${errorReason}`)
+        }
       }
     }
 
@@ -328,26 +335,47 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
     if (feeRow?.id) {
       const escrowState = await getOnChainEscrow(auditUuid)
       if (!escrowState) {
-        throw new Error("Unable to read escrow state after reward settlement")
-      }
-
-      if (escrowState.remaining > BigInt(0)) {
+        console.warn("[audit-processor] Escrow state unavailable after reward settlement; continuing without on-chain reconciliation.", { auditUuid })
+        await admin.from("audit_fees").update({ status: "settled" }).eq("id", feeRow.id)
+      } else if (escrowState.remaining > BigInt(0)) {
         console.log("[audit-processor] Extra escrow remaining, refunding depositor", {
           auditUuid,
           remaining: escrowState.remaining.toString(),
           depositor: escrowState.depositor,
         })
-        const refundResult = await refundContractFee({ auditUuid })
+        let refundResult = await refundContractFee({ auditUuid })
         if (refundResult.status !== "settled") {
-          console.warn("[audit-processor] Escrow refund failed after reward settlement; continuing to audit cleanup", {
-            auditUuid,
-            refundResult,
-          })
-          // Avoid blocking final audit cleanup if the escrow contract reports there is nothing to refund.
-          if (!refundResult.error?.toLowerCase().includes("nothing to refund") && !refundResult.error?.toLowerCase().includes("already settled")) {
-            throw new Error(`Escrow refund failed: ${refundResult.error ?? "unknown"}`)
+          const errText = String(refundResult.error || "").toLowerCase()
+          const shouldFallbackToCircle = isEscrowConfigured() && isCircleConfigured() && (
+            errText.includes("insufficient funds") ||
+            errText.includes("zero native balance") ||
+            errText.includes("gas")
+          )
+
+          if (shouldFallbackToCircle && feeRow.source_address) {
+            console.warn("[audit-processor] Escrow refund failed due to gas; falling back to Circle refund", {
+              auditUuid,
+              refundResult,
+            })
+            refundResult = await refundFee({
+              destinationAddress: feeRow.source_address,
+              amount: Number(feeRow.amount || 0),
+              idempotencyKey: auditUuid,
+            })
+          } else {
+            console.warn("[audit-processor] Escrow refund failed after reward settlement; continuing to audit cleanup", {
+              auditUuid,
+              refundResult,
+            })
+          }
+
+          if (refundResult.status !== "settled") {
+            if (!refundResult.error?.toLowerCase().includes("nothing to refund") && !refundResult.error?.toLowerCase().includes("already settled")) {
+              throw new Error(`Escrow refund failed: ${refundResult.error ?? "unknown"}`)
+            }
           }
         }
+
         await admin
           .from("audit_fees")
           .update({ status: "settled", refund_external_id: refundResult.externalId ?? null })

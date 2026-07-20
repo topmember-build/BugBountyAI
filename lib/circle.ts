@@ -137,6 +137,30 @@ export async function settleReward(req: SettlementRequest): Promise<SettlementRe
       amount: req.amount,
       idempotencyKey: req.idempotencyKey,
     })
+
+    const fallbackError = String(result.error || "").toLowerCase()
+    const couldNotPayGas = fallbackError.includes("zero native balance") || fallbackError.includes("insufficient funds") || fallbackError.includes("gas")
+
+    if (result.status === "failed" && couldNotPayGas && isCircleConfigured()) {
+      console.warn("[circle] settleReward: escrow contract settlement failed due to operator gas; falling back to Circle transfer", {
+        auditUuid: req.auditUuid,
+        error: result.error,
+      })
+      const backupResult = await fundUserWallet({
+        destinationAddress: req.destinationAddress,
+        amount: req.amount,
+        idempotencyKey: req.idempotencyKey,
+      })
+      return {
+        status: backupResult.status,
+        txHash: null,
+        externalId: backupResult.externalId,
+        provider: "circle_arc",
+        simulated: backupResult.simulated,
+        error: backupResult.error,
+      }
+    }
+
     return result
   }
 
@@ -323,11 +347,13 @@ export async function refundFee(params: {
       fallbackError.includes("nothing to refund") ||
       fallbackError.includes("already settled") ||
       fallbackError.includes("not found") ||
-      fallbackError.includes("no escrow")
+      fallbackError.includes("no escrow") ||
+      fallbackError.includes("insufficient funds") ||
+      fallbackError.includes("gas")
     )
 
     if (result.status === "failed" && shouldFallbackToCircle) {
-      console.warn("[circle] refundFee: escrow refund failed with no on-chain funds, falling back to Circle wallet refund", {
+      console.warn("[circle] refundFee: escrow refund failed; falling back to Circle wallet refund", {
         auditUuid: params.idempotencyKey,
         error: result.error,
       })

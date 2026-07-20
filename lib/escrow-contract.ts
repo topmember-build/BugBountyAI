@@ -109,6 +109,37 @@ async function getSignerBalance(): Promise<bigint> {
   return await provider.getBalance(address)
 }
 
+export async function getEscrowOperatorStatus(): Promise<{
+  address: string | null
+  balance: string | null
+  error: string | null
+}> {
+  if (!isEscrowConfigured()) {
+    return {
+      address: null,
+      balance: null,
+      error: "Escrow not configured",
+    }
+  }
+
+  try {
+    const signer = getSigner()
+    const address = await signer.getAddress()
+    const balance = await getSignerBalance()
+    return {
+      address,
+      balance: formatEther(balance),
+      error: null,
+    }
+  } catch (err) {
+    return {
+      address: null,
+      balance: null,
+      error: err instanceof Error ? err.message : String(err),
+    }
+  }
+}
+
 function getContract(): EthersContract {
   if (!_contract) {
     const addr = process.env.ESCROW_CONTRACT_ADDRESS
