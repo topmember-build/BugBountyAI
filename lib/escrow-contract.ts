@@ -4,7 +4,7 @@ import "server-only"
 // Types are imported separately so TS is happy.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ethersLib = require("ethers") as typeof import("ethers")
-const { JsonRpcProvider, Wallet, Contract, keccak256, toUtf8Bytes } = ethersLib
+const { JsonRpcProvider, Wallet, Contract, keccak256, toUtf8Bytes, formatEther } = ethersLib
 
 type EthersProvider = InstanceType<(typeof ethersLib)["JsonRpcProvider"]>
 type EthersSigner = InstanceType<(typeof ethersLib)["Wallet"]>
@@ -92,6 +92,11 @@ function getSigner(): EthersSigner {
   return _signer
 }
 
+async function getSignerBalance(): Promise<bigint> {
+  const signer = getSigner()
+  return await signer.getBalance()
+}
+
 function getContract(): EthersContract {
   if (!_contract) {
     const addr = process.env.ESCROW_CONTRACT_ADDRESS
@@ -168,11 +173,19 @@ export async function notifyContractDeposit(params: {
     const auditId = auditIdFromUuid(params.auditUuid)
     const units = toUsdcUnits(params.amount)
 
+    const balance = await getSignerBalance()
     console.log("[escrow] notifyDeposit", {
       auditId,
       depositor: params.depositor,
       units: units.toString(),
+      operatorBalance: formatEther(balance),
     })
+
+    if (balance === BigInt(0)) {
+      const message = "Escrow operator account has zero native balance and cannot pay gas."
+      console.error("[escrow] notifyDeposit failed", { error: message, operatorBalance: formatEther(balance) })
+      return { txHash: null, error: message }
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const tx = await contractCallWithRetry(() => contract.notifyDeposit(
@@ -215,11 +228,26 @@ export async function releaseContractReward(params: {
       : "0x95D10619338707703475239EC03120A8266AF995"
 
 
+    const balance = await getSignerBalance()
     console.log("[escrow] releaseReward", {
       auditId,
       recipient,
       units: units.toString(),
+      operatorBalance: formatEther(balance),
     })
+
+    if (balance === BigInt(0)) {
+      const message = "Escrow operator account has zero native balance and cannot pay gas."
+      console.error("[escrow] releaseReward failed", { error: message, operatorBalance: formatEther(balance) })
+      return {
+        status: "failed",
+        txHash: null,
+        externalId: null,
+        provider: "escrow_contract",
+        simulated: false,
+        error: message,
+      }
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const tx = await contractCallWithRetry(() => contract.releaseReward(
@@ -310,6 +338,14 @@ export async function settleContractAudit(params: {
   try {
     const contract = getContract()
     const auditId = auditIdFromUuid(params.auditUuid)
+
+    const balance = await getSignerBalance()
+    console.log("[escrow] settle", { auditId, operatorBalance: formatEther(balance) })
+    if (balance === BigInt(0)) {
+      const message = "Escrow operator account has zero native balance and cannot pay gas."
+      console.error("[escrow] settle failed", { error: message, operatorBalance: formatEther(balance) })
+      return { txHash: null, error: message }
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const tx = await contract.settle(auditId)
