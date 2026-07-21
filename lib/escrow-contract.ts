@@ -74,8 +74,12 @@ let _provider: EthersProvider | null = null
 let _signer: EthersSigner | null = null
 let _contract: EthersContract | null = null
 
+const thirdwebClientId = process.env.THIRDWEB_CLIENT_ID || process.env.NEXT_PUBLIC_THIRDWEB_CLIENT_ID
+const thirdwebAuthRpc = thirdwebClientId ? `https://5042002.rpc.thirdweb.com/${thirdwebClientId}` : null
+
 const ARC_RPC_LIST = [
   process.env.ESCROW_RPC_URL,
+  thirdwebAuthRpc,
   "https://5042002.rpc.thirdweb.com",
   "https://rpc.testnet.arc.network",
 ].filter(Boolean) as string[]
