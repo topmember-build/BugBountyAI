@@ -323,9 +323,16 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  if (feeRow.status === "used") {
+  // Check if this fee transaction has already been linked to any existing audit
+  const { data: existingAudit } = await admin
+    .from("audits")
+    .select("id")
+    .eq("audit_fee_id", feeRow.id)
+    .maybeSingle()
+
+  if (feeRow.status === "used" || feeRow.status === "refunded" || existingAudit) {
     return NextResponse.json(
-      { error: "This audit fee has already been used for a previous audit. Authorize a new fee before submitting another audit." },
+      { error: "This audit fee transaction has already been used for a previous audit. Please authorize a new fee before submitting another audit." },
       { status: 400 },
     )
   }

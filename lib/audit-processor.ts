@@ -342,7 +342,7 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
       const escrowState = await getOnChainEscrow(auditUuid)
       if (!escrowState) {
         console.warn("[audit-processor] Escrow state unavailable after reward settlement; continuing without on-chain reconciliation.", { auditUuid })
-        await admin.from("audit_fees").update({ status: "settled" }).eq("id", feeRow.id)
+        await admin.from("audit_fees").update({ status: "used" }).eq("id", feeRow.id)
       } else if (escrowState.remaining > BigInt(0)) {
         console.log("[audit-processor] Extra escrow remaining, refunding depositor", {
           auditUuid,
@@ -391,7 +391,7 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
 
         await admin
           .from("audit_fees")
-          .update({ status: "settled", refund_external_id: refundResult.externalId ?? null })
+          .update({ status: "used", refund_external_id: refundResult.externalId ?? null })
           .eq("id", feeRow.id)
       } else {
         const settleResult = await settleContractAudit({ auditUuid })
@@ -417,7 +417,7 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
             throw new Error(`Escrow settlement failed: ${settleResult.error}`)
           }
         }
-        await admin.from("audit_fees").update({ status: "settled" }).eq("id", feeRow.id)
+        await admin.from("audit_fees").update({ status: "used" }).eq("id", feeRow.id)
       }
     }
 

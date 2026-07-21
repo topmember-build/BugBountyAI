@@ -80,12 +80,26 @@ export async function GET() {
 
     const { data: feeAuthorizedRows } = await admin
       .from("audit_fees")
-      .select("transaction_id")
+      .select("id, transaction_id")
       .eq("user_id", user.id)
-      .in("status", ["authorized", "settled"])
+      .in("status", ["authorized", "pending"])
       .not("transaction_id", "is", null)
       .order("created_at", { ascending: false })
-      .limit(1)
+
+    let feeTransactionId: string | null = null
+    for (const row of feeAuthorizedRows || []) {
+      if (!row.transaction_id) continue
+      const { data: linkedAudit } = await admin
+        .from("audits")
+        .select("id")
+        .eq("audit_fee_id", row.id)
+        .maybeSingle()
+
+      if (!linkedAudit) {
+        feeTransactionId = row.transaction_id
+        break
+      }
+    }
 
     const { data: feePendingRows } = await admin
       .from("audit_fees")
@@ -96,22 +110,7 @@ export async function GET() {
       .order("created_at", { ascending: false })
       .limit(1)
 
-    let feeTransactionId = feeAuthorizedRows?.[0]?.transaction_id ?? null
     const pendingChallengeId = feePendingRows?.[0]?.challenge_id ?? null
-
-    if (feeTransactionId) {
-      const { data: consumedFee } = await admin
-        .from("audit_fees")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("transaction_id", feeTransactionId)
-        .eq("status", "used")
-        .maybeSingle()
-
-      if (consumedFee) {
-        feeTransactionId = null
-      }
-    }
 
     if (!feeTransactionId && pendingChallengeId) {
       try {
