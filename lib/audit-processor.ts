@@ -272,7 +272,7 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
         provider = settlement.provider || fallbackProvider
         txHash = settlement.txHash
         externalId = settlement.externalId
-        if (settlement.status === "settled") {
+        if (settlement.status === "settled" || settlement.status === "settling") {
           settledAt = new Date().toISOString()
         } else {
           hadSettlementFailures = true
@@ -320,7 +320,7 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
 
       await admin.from("findings").update({ reward_status: rewardStatus }).eq("id", finding.id)
 
-      if (rewardStatus === "settled" && agentId) {
+      if ((rewardStatus === "settled" || rewardStatus === "settling") && agentId) {
         try {
           await updateAgentReputation({
             agentId,

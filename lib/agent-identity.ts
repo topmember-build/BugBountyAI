@@ -68,7 +68,7 @@ export async function getAgentOnchainProfile(params: {
   }
 
   try {
-    const provider = new ethersLib.JsonRpcProvider(rpcUrl)
+    const provider = new ethersLib.JsonRpcProvider(rpcUrl, 5042002, { staticNetwork: true })
     const contract = new ethersLib.Contract(registryAddress, AgentIdentityArtifact.abi as any, provider)
     const profile = await contract.getAgent(BigInt(params.agentId))
 
@@ -111,7 +111,7 @@ export async function updateAgentReputation(params: {
   }
 
   try {
-    const provider = new ethersLib.JsonRpcProvider(rpcUrl)
+    const provider = new ethersLib.JsonRpcProvider(rpcUrl, 5042002, { staticNetwork: true })
     const signer = new ethersLib.Wallet(privateKey, provider)
     const contract = new ethersLib.Contract(registryAddress, AgentIdentityArtifact.abi as any, signer)
 
@@ -151,7 +151,7 @@ export async function registerAgentIdentity(params: {
   }
 
   try {
-    const provider = new ethersLib.JsonRpcProvider(rpcUrl)
+    const provider = new ethersLib.JsonRpcProvider(rpcUrl, 5042002, { staticNetwork: true })
     const signer = new ethersLib.Wallet(privateKey, provider)
     const registryAddress = getRegistryAddress() || (await deployRegistryContract(signer))
     const contract = new ethersLib.Contract(registryAddress, AgentIdentityArtifact.abi as any, signer)

@@ -95,7 +95,7 @@ function getProvider(): EthersProvider {
     const rpcUrl = UNIQUE_ARC_RPCS[_rpcIndex] || UNIQUE_ARC_RPCS[0]
     if (!rpcUrl) throw new Error("[escrow] ESCROW_RPC_URL is not set")
     console.log(`[escrow] Initializing JsonRpcProvider with RPC endpoint (${_rpcIndex + 1}/${UNIQUE_ARC_RPCS.length}):`, rpcUrl)
-    _provider = new JsonRpcProvider(rpcUrl)
+    _provider = new JsonRpcProvider(rpcUrl, 5042002, { staticNetwork: true })
   }
   return _provider
 }
