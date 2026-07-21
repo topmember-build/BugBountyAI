@@ -74,16 +74,27 @@ let _provider: EthersProvider | null = null
 let _signer: EthersSigner | null = null
 let _contract: EthersContract | null = null
 
+const ARC_RPC_LIST = [
+  process.env.ESCROW_RPC_URL,
+  "https://5042002.rpc.thirdweb.com",
+  "https://rpc.testnet.arc.network",
+].filter(Boolean) as string[]
+
+const UNIQUE_ARC_RPCS = Array.from(new Set(ARC_RPC_LIST))
+let _rpcIndex = 0
+
 function resetProviderState() {
   _contract = null
   _signer = null
   _provider = null
+  _rpcIndex = (_rpcIndex + 1) % UNIQUE_ARC_RPCS.length
 }
 
 function getProvider(): EthersProvider {
   if (!_provider) {
-    const rpcUrl = process.env.ESCROW_RPC_URL
+    const rpcUrl = UNIQUE_ARC_RPCS[_rpcIndex] || UNIQUE_ARC_RPCS[0]
     if (!rpcUrl) throw new Error("[escrow] ESCROW_RPC_URL is not set")
+    console.log(`[escrow] Initializing JsonRpcProvider with RPC endpoint (${_rpcIndex + 1}/${UNIQUE_ARC_RPCS.length}):`, rpcUrl)
     _provider = new JsonRpcProvider(rpcUrl)
   }
   return _provider
@@ -181,7 +192,16 @@ async function contractCallWithRetry<T>(fn: () => Promise<T>, retries = 5, delay
       return await fn()
     } catch (err: any) {
       const msg = String(err.message || err || "")
-      const isRateLimit = msg.includes("request limit reached") || msg.includes("429") || (err.code === -32011) || (err.info?.error?.code === -32011)
+      const isRateLimit =
+        msg.includes("request limit reached") ||
+        msg.includes("too many requests") ||
+        msg.includes("exceeded maximum retry limit") ||
+        msg.includes("429") ||
+        msg.includes("599") ||
+        msg.includes("SERVER_ERROR") ||
+        msg.includes("CLIENT ESCALATED") ||
+        (err.code === -32011) ||
+        (err.info?.error?.code === -32011)
       const isTimeout = msg.includes("timeout") || msg.includes("TIMEOUT") || msg.includes("request timeout")
       const isNetworkError = msg.includes("JsonRpcProvider failed to detect network") || msg.includes("NETWORK_ERROR") || msg.includes("Failed to fetch")
 

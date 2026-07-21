@@ -145,7 +145,17 @@ export async function settleReward(req: SettlementRequest): Promise<SettlementRe
       fallbackError.includes("gas") ||
       fallbackError.includes("no escrow") ||
       fallbackError.includes("not found") ||
-      fallbackError.includes("deposit")
+      fallbackError.includes("deposit") ||
+      fallbackError.includes("exceeded maximum retry limit") ||
+      fallbackError.includes("too many requests") ||
+      fallbackError.includes("rate limit") ||
+      fallbackError.includes("599") ||
+      fallbackError.includes("429") ||
+      fallbackError.includes("server_error") ||
+      fallbackError.includes("server error") ||
+      fallbackError.includes("client escalated") ||
+      fallbackError.includes("failed after retries") ||
+      fallbackError.includes("rpc")
     )
 
     if (result.status === "failed" && shouldFallbackToCircle) {
@@ -356,7 +366,17 @@ export async function refundFee(params: {
       fallbackError.includes("not found") ||
       fallbackError.includes("no escrow") ||
       fallbackError.includes("insufficient funds") ||
-      fallbackError.includes("gas")
+      fallbackError.includes("gas") ||
+      fallbackError.includes("exceeded maximum retry limit") ||
+      fallbackError.includes("too many requests") ||
+      fallbackError.includes("rate limit") ||
+      fallbackError.includes("599") ||
+      fallbackError.includes("429") ||
+      fallbackError.includes("server_error") ||
+      fallbackError.includes("server error") ||
+      fallbackError.includes("client escalated") ||
+      fallbackError.includes("failed after retries") ||
+      fallbackError.includes("rpc")
     )
 
     if (result.status === "failed" && shouldFallbackToCircle) {

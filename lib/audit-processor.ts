@@ -355,7 +355,14 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
           const shouldFallbackToCircle = isEscrowConfigured() && isCircleConfigured() && (
             errText.includes("insufficient funds") ||
             errText.includes("zero native balance") ||
-            errText.includes("gas")
+            errText.includes("gas") ||
+            errText.includes("request limit reached") ||
+            errText.includes("too many requests") ||
+            errText.includes("exceeded maximum retry limit") ||
+            errText.includes("rate limit") ||
+            errText.includes("599") ||
+            errText.includes("429") ||
+            errText.includes("rpc")
           )
 
           if (shouldFallbackToCircle && feeRow.source_address) {
@@ -390,9 +397,19 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
         const settleResult = await settleContractAudit({ auditUuid })
         if (settleResult.error) {
           const errText = String(settleResult.error || "").toLowerCase()
-          const gasIssue = errText.includes("zero native balance") || errText.includes("insufficient funds") || errText.includes("gas")
-          if (gasIssue && isEscrowConfigured() && isCircleConfigured()) {
-            console.warn("[audit-processor] Escrow settle failed due to operator gas; marking fee settled and continuing", {
+          const gasOrRpcIssue =
+            errText.includes("zero native balance") ||
+            errText.includes("insufficient funds") ||
+            errText.includes("gas") ||
+            errText.includes("request limit reached") ||
+            errText.includes("too many requests") ||
+            errText.includes("exceeded maximum retry limit") ||
+            errText.includes("rate limit") ||
+            errText.includes("599") ||
+            errText.includes("429") ||
+            errText.includes("rpc")
+          if (gasOrRpcIssue && isEscrowConfigured() && isCircleConfigured()) {
+            console.warn("[audit-processor] Escrow settle failed due to operator/RPC issue; marking fee settled and continuing", {
               auditUuid,
               settleResult,
             })
