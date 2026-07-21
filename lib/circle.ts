@@ -202,14 +202,14 @@ export async function settleReward(req: SettlementRequest): Promise<SettlementRe
     })
     console.log("[circle] settleReward calling createTransaction with payload:", JSON.stringify(payload, null, 2))
 
-    const res = await client.createTransaction(payload)
+    const res = await client.createTransaction(payload as any)
     console.log("[circle] settleReward response", JSON.stringify(res?.data ?? res, null, 2))
 
     const tx = res.data
     const state = tx?.state
     return {
       status: state === "COMPLETE" ? "settled" : "settling",
-      txHash: tx?.txHash ?? null,
+      txHash: (tx as any)?.txHash ?? null,
       externalId: tx?.id ?? null,
       provider: "circle_arc",
       simulated: false,
@@ -301,7 +301,7 @@ export async function fundUserWallet(params: {
     })
     console.log("[circle] fundUserWallet calling createTransaction with payload:", JSON.stringify(payload, null, 2))
 
-    const res = await client.createTransaction(payload)
+    const res = await client.createTransaction(payload as any)
     console.log("[circle] fundUserWallet createTransaction response", {
       txId: res.data?.id,
       txState: res.data?.state,
@@ -414,8 +414,8 @@ export async function transferFromDeveloperWallet(params: {
     })
 
     console.log("[circle] transferFromDeveloperWallet calling createTransaction:", JSON.stringify(payload, null, 2))
-    const res = await client.createTransaction(payload)
-    const tx = res.data?.transaction ?? res.data
+    const res = await client.createTransaction(payload as any)
+    const tx = (res.data as any)?.transaction ?? res.data
     return { transactionId: tx?.id ?? null }
   } catch (err) {
     return { transactionId: null, error: err instanceof Error ? err.message : String(err) }

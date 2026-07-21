@@ -54,6 +54,7 @@ export default function SignUpPage() {
         } catch {}
       }
 
+      if (!supabase) throw new Error("Supabase client is not configured")
       const { error } = await supabase.auth.signUp({
         email,
         password,

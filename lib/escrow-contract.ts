@@ -309,7 +309,7 @@ export async function releaseContractReward(params: {
       units,
     ))
 
-    const receipt = await tx.wait()
+    const receipt = await (tx as any).wait()
 
     console.log("[escrow] releaseReward confirmed", { txHash: receipt?.hash })
     return {

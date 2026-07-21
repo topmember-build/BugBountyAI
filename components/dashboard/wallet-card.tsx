@@ -485,7 +485,7 @@ export function WalletCard({ onFeeAuthorized, feeTransactionId, autoSetup = fals
                 {t("request_more_faucet")}
                 <a
                   className="ml-1 text-primary underline hover:text-primary/80 transition"
-                  href={`https://faucet.circle.com/?network=${encodeURIComponent(data.wallet.blockchain ?? "ARC-TESTNET")}&address=${encodeURIComponent(data.wallet.address)}&currency=USDC`}
+                  href={`https://faucet.circle.com/?network=${encodeURIComponent(data?.wallet?.blockchain ?? "ARC-TESTNET")}&address=${encodeURIComponent(data?.wallet?.address ?? "")}&currency=USDC`}
                   target="_blank"
                   rel="noreferrer noopener"
                 >

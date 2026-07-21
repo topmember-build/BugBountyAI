@@ -1,5 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { ethers } from "ethers"
 import { createClient } from "@/lib/supabase/server"
 import type { AgentType } from "@/lib/types"
 import { registerAgentIdentity } from "@/lib/agent-identity"

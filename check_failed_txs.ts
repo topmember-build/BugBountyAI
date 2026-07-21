@@ -1,11 +1,11 @@
 import "dotenv/config";
 import { initiateUserControlledWalletsClient } from "@circle-fin/user-controlled-wallets";
 
-const client = initiateUserControlledWalletsClient({ apiKey: process.env.CIRCLE_API_KEY });
+const client = initiateUserControlledWalletsClient({ apiKey: process.env.CIRCLE_API_KEY || "" });
 
 async function run() {
   try {
-    const res = await client.listTransactions({});
+    const res = await client.listTransactions({} as any);
     const txs = res.data?.transactions ?? [];
     const failedTxs = txs.filter(tx => tx.state === "FAILED");
     console.log(`Found ${failedTxs.length} failed transactions.`);
@@ -13,7 +13,7 @@ async function run() {
       console.log("Tx ID:", tx.id);
       console.log("Error:", tx.errorReason);
       console.log("Error details:", tx.errorDetails);
-      console.log("Blockchain error:", tx.blockchainError);
+      console.log("Blockchain error:", (tx as any).blockchainError);
       console.log("Destination:", tx.destinationAddress);
     }
   } catch (err) {

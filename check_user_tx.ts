@@ -41,7 +41,7 @@ async function run() {
         if (tx?.state === "FAILED") {
           console.log(`Error Reason: ${tx.errorReason}`);
           console.log(`Error Details: ${tx.errorDetails}`);
-          console.log(`Blockchain Error: ${tx.blockchainError}`);
+          console.log(`Blockchain Error: ${(tx as any)?.blockchainError}`);
         }
       } catch (txErr) {
         console.error("Failed to get tx details:", txErr);

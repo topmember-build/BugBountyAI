@@ -2,7 +2,7 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { analyzeRepository } from "@/lib/analyzer"
 import { calculateReward } from "@/lib/rewards"
-import { refundFee, settleReward } from "@/lib/circle"
+import { refundFee, settleReward, isCircleConfigured } from "@/lib/circle"
 import {
   isEscrowConfigured,
   notifyContractDeposit,
@@ -84,11 +84,17 @@ export async function processAuditInline(auditId: string): Promise<ProcessAuditR
       if (depositResult.error || !depositResult.txHash) {
         const errorReason = depositResult.error ?? "Escrow deposit did not return a transaction hash"
         const normalizedError = String(errorReason).toLowerCase()
-        const gasIssue = normalizedError.includes("zero native balance") || normalizedError.includes("insufficient funds") || normalizedError.includes("gas")
-        console.warn("[audit-processor] notifyContractDeposit failed", { error: errorReason, depositResult, gasIssue })
+        const gasOrRpcIssue =
+          normalizedError.includes("zero native balance") ||
+          normalizedError.includes("insufficient funds") ||
+          normalizedError.includes("gas") ||
+          normalizedError.includes("request limit reached") ||
+          normalizedError.includes("rate limit") ||
+          normalizedError.includes("32011")
+        console.warn("[audit-processor] notifyContractDeposit failed", { error: errorReason, depositResult, gasOrRpcIssue })
 
-        if (gasIssue && isCircleConfigured()) {
-          console.warn("[audit-processor] Continuing audit with Circle fallback because escrow operator gas is unavailable", { auditUuid })
+        if (gasOrRpcIssue && isCircleConfigured()) {
+          console.warn("[audit-processor] Continuing audit with Circle fallback because escrow deposit encountered an operator/RPC issue", { auditUuid, errorReason })
         } else {
           throw new Error(`Escrow deposit failed: ${errorReason}`)
         }

@@ -8,7 +8,9 @@
     "dev": "next dev --webpack",
     "lint": "eslint .",
     "start": "next start",
-    "commit-and-push": "node scripts/git_push.js"
+    "commit-and-push": "node scripts/git_push.js",
+    "verify-escrow-operator": "node scripts/verify_escrow_operator_balance.js",
+    "compare-escrow-envs": "node scripts/compare_escrow_envs.js"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.205",

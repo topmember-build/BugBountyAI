@@ -30,3 +30,7 @@ function loadEnvFile(filePath) {
 const repoRoot = process.cwd()
 loadEnvFile(path.join(repoRoot, '.env.development.local'))
 loadEnvFile(path.join(repoRoot, '.env'))
+
+module.exports = {
+  loadEnvFile,
+}

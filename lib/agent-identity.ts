@@ -1,5 +1,8 @@
-import { ethers } from "ethers"
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ethersLib = require("ethers") as typeof import("ethers")
 import AgentIdentityArtifact from "@/public/contracts/AgentIdentityRegistry.json"
+
+type EthersWallet = InstanceType<(typeof ethersLib)["Wallet"]>
 
 export interface AgentIdentityRegistrationResult {
   status: "ready" | "skipped" | "error"
@@ -37,8 +40,9 @@ function getRegistryAddress(): string | null {
   return process.env.AGENT_IDENTITY_REGISTRY_ADDRESS || process.env.AGENT_IDENTITY_CONTRACT_ADDRESS || null
 }
 
-async function deployRegistryContract(signer: ethers.Wallet): Promise<string> {
-  const factory = new ethers.ContractFactory(AgentIdentityArtifact.abi as any, AgentIdentityArtifact.bytecode as string, signer)
+async function deployRegistryContract(signer: EthersWallet): Promise<string> {
+  const bytecode = typeof AgentIdentityArtifact.bytecode === "string" ? AgentIdentityArtifact.bytecode : (AgentIdentityArtifact.bytecode as any)?.object ?? ""
+  const factory = new ethersLib.ContractFactory(AgentIdentityArtifact.abi as any, bytecode, signer)
   const contract = await factory.deploy()
   await contract.waitForDeployment()
   return await contract.getAddress()
@@ -64,8 +68,8 @@ export async function getAgentOnchainProfile(params: {
   }
 
   try {
-    const provider = new ethers.JsonRpcProvider(rpcUrl)
-    const contract = new ethers.Contract(registryAddress, AgentIdentityArtifact.abi as any, provider)
+    const provider = new ethersLib.JsonRpcProvider(rpcUrl)
+    const contract = new ethersLib.Contract(registryAddress, AgentIdentityArtifact.abi as any, provider)
     const profile = await contract.getAgent(BigInt(params.agentId))
 
     return {
@@ -107,9 +111,9 @@ export async function updateAgentReputation(params: {
   }
 
   try {
-    const provider = new ethers.JsonRpcProvider(rpcUrl)
-    const signer = new ethers.Wallet(privateKey, provider)
-    const contract = new ethers.Contract(registryAddress, AgentIdentityArtifact.abi as any, signer)
+    const provider = new ethersLib.JsonRpcProvider(rpcUrl)
+    const signer = new ethersLib.Wallet(privateKey, provider)
+    const contract = new ethersLib.Contract(registryAddress, AgentIdentityArtifact.abi as any, signer)
 
     const tx = await contract.addReputation(BigInt(params.agentId), BigInt(Math.round(params.delta)))
     await tx.wait()
@@ -137,7 +141,7 @@ export async function registerAgentIdentity(params: {
   const rpcUrl = getRpcUrl()
   const privateKey = getPrivateKey()
   const ownerAddress = params.ownerAddress || params.walletAddress || null
-  if (!ownerAddress || !ethers.isAddress(ownerAddress) || !rpcUrl || !privateKey) {
+  if (!ownerAddress || !ethersLib.isAddress(ownerAddress) || !rpcUrl || !privateKey) {
     return {
       status: "skipped",
       registryAddress: getRegistryAddress(),
@@ -147,10 +151,10 @@ export async function registerAgentIdentity(params: {
   }
 
   try {
-    const provider = new ethers.JsonRpcProvider(rpcUrl)
-    const signer = new ethers.Wallet(privateKey, provider)
+    const provider = new ethersLib.JsonRpcProvider(rpcUrl)
+    const signer = new ethersLib.Wallet(privateKey, provider)
     const registryAddress = getRegistryAddress() || (await deployRegistryContract(signer))
-    const contract = new ethers.Contract(registryAddress, AgentIdentityArtifact.abi as any, signer)
+    const contract = new ethersLib.Contract(registryAddress, AgentIdentityArtifact.abi as any, signer)
 
     const tx = await contract.registerAgent(ownerAddress, params.name, params.metadataUri)
     const receipt = await tx.wait()

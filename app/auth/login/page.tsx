@@ -24,6 +24,7 @@ export default function LoginPage() {
     setError(null)
 
     try {
+      if (!supabase) throw new Error("Supabase client is not configured")
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
 

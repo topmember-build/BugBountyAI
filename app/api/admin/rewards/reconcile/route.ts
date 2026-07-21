@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
   }
 
   // Aggregate settled rewards per agent
-  const { data: sums, error: sumsError } = await admin
+  const { data: sums, error: sumsError } = await (admin
     .from("rewards")
-    .select("agent_id, sum(amount) as total")
+    .select("agent_id, sum(amount) as total") as any)
     .eq("status", "settled")
     .group("agent_id")
 
