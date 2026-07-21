@@ -8,17 +8,21 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**🌐 [Visit Live Demo](https://bug-bounty-ai-eight.vercel.app/)**
+**🌐 [Visit Live Demo](https://bug-bounty-ai-online.vercel.app/)**
+
+[![Arc Testnet Escrow](https://img.shields.io/badge/Arc_Testnet-BugBountyEscrow_0x3b2b...bbdd-blue?logo=ethereum)](https://testnet.arcscan.app/address/0x3b2b4345a5327e27261a51ee0de57be29dffbbdd)
+[![Agent Identity Registry](https://img.shields.io/badge/Arc_Testnet-AgentIdentity_0x3e56...1f1A-purple?logo=ethereum)](https://testnet.arcscan.app/address/0x3e56d7cda86929aCEf01Ef114855B006359a1f1A)
 
 ## 🎯 Overview
 
-The Bug Bounty AI Platform is a decentralized marketplace where security researchers and teams can discover vulnerabilities in repositories using autonomous AI agents. The platform combines traditional bug bounty workflows with AI-driven code analysis to streamline vulnerability discovery, automated assessment, and USDC reward distribution.
+The Bug Bounty AI Platform is a decentralized marketplace where security researchers and teams can discover vulnerabilities in repositories using autonomous AI agents. The platform combines traditional bug bounty workflows with AI-driven code analysis to streamline vulnerability discovery, automated assessment, and USDC reward distribution on Arc Testnet.
 
 ### Why Bug Bounty AI?
 
 - **AI-Powered Analysis** - Autonomous agents with specialized focus areas (Security, Logic, Dependency, Smart Contracts)
 - **Trained Agent Marketplace** - Browse, select, and use community-trained agents with custom prompts
-- **Instant Rewards** - Findings are scored and USDC rewards settled via Web3 wallet integration
+- **On-Chain USDC Escrow & Instant Payouts** - Trustless smart contract escrow (`BugBountyEscrow`) for single-use audit fees and instant agent reward distribution
+- **On-Chain Agent Identity** - On-chain registry (`AgentIdentityRegistry`) tracking AI agent credentials and reputation
 - **Transparent Leaderboard** - Track agent performance and earn reputation across the platform
 - **Developer-Friendly** - Simple API for integrating vulnerability scanning into your workflow
 
@@ -388,17 +392,44 @@ NEXT_PUBLIC_CIRCLE_PUBLIC_KEY=your_public_key  # Client-side public key
 CIRCLE_APP_ID=your_app_id                      # Circle App ID for W3S
 CIRCLE_BLOCKCHAIN=ARC-TESTNET                  # Blockchain network (defaults to Arc testnet)
 CIRCLE_USDC_TOKEN_ID=your_usdc_token_id        # USDC token identifier
-```
-
 **Reward Distribution Flow**:
 1. Audit completes and findings are validated
 2. Severity-based reward calculation (Critical → $1000, High → $500, etc.)
-3. Platform treasury wallet initiates USDC transfer via Circle API
-4. Circle Developer Wallet creates transaction on Arc testnet
+3. Platform treasury wallet initiates USDC transfer via Circle API or smart contract escrow (`BugBountyEscrow`)
+4. Circle Developer Wallet / Operator Relayer creates transaction on Arc testnet
 5. User receives USDC in their non-custodial wallet
 6. Transaction state tracked in `findings.reward_status`
 
-## �📊 Database Schema
+### 📜 Deployed Arc Testnet Smart Contracts
+
+BugBountyAI utilizes Solidity smart contracts deployed on **Arc Testnet** (Chain ID: `5042002`) compiled with Foundry and OpenZeppelin contracts:
+
+| Contract Name | Contract Address | Network | Explorer / Verification | Description |
+|---------------|------------------|---------|-------------------------|-------------|
+| **BugBountyEscrow** | `0x3b2b4345a5327e27261a51ee0de57be29dffbbdd` | Arc Testnet (`5042002`) | [ArcScan Address](https://testnet.arcscan.app/address/0x3b2b4345a5327e27261a51ee0de57be29dffbbdd) | Trustless non-custodial USDC escrow managing audit fee deposits, protocol fee deductions (3%), operator relaying, and automated reward release to AI agents/researchers. |
+| **AgentIdentityRegistry** | `0x3e56d7cda86929aCEf01Ef114855B006359a1f1A` | Arc Testnet (`5042002`) | [ArcScan Address](https://testnet.arcscan.app/address/0x3e56d7cda86929aCEf01Ef114855B006359a1f1A) | On-chain identity & reputation tracking contract recording agent registration, metadata URIs, owner addresses, and dynamic audit reputation scores. |
+
+### 🛡️ Smart Contract Architecture & Reliability Features
+
+1. **Non-Custodial USDC Escrow (`BugBountyEscrow.sol`)**:
+   - Replaces centralized treasury holdings with automated on-chain escrow.
+   - User pays audit fee via Circle User-Controlled Wallet directly to the contract address.
+   - Server operator calls `notifyDeposit(auditId, depositor, amount)` to lock single-use audit funds.
+   - Payouts are released directly to security agent wallets with `releaseReward(auditId, agentWallet, amount)`.
+
+2. **Single-Use Fee Locking & Re-Use Prevention**:
+   - Each audit fee authorization transaction ID is linked 1:1 with an audit UUID.
+   - Prevents reuse of transaction hashes and ensures strict accounting per scan run.
+
+3. **RPC Resilience & Multi-Provider Failover**:
+   - Authenticated Thirdweb Gateway (`https://5042002.rpc.thirdweb.com/<client-id>`) primary RPC.
+   - Automatic fallback to secondary public Arc RPC nodes (`https://rpc.arctest.circle.com`).
+   - Integrated Circle Developer Wallet payout fallback for automated recovery if gas/RPC thresholds fail.
+
+4. **Operator Gas Diagnostics**:
+   - Automated server-side balance guards verify relayer gas balances before dispatching on-chain transactions to prevent stuck pending states.
+
+## 📊 Database Schema
 
 ### Core Tables
 
