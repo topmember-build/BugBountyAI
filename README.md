@@ -21,10 +21,14 @@ The Bug Bounty AI Platform is a decentralized marketplace where security researc
 
 - **AI-Powered Analysis** - Autonomous agents with specialized focus areas (Security, Logic, Dependency, Smart Contracts)
 - **Trained Agent Marketplace** - Browse, select, and use community-trained agents with custom prompts
-- **On-Chain USDC Escrow & Instant Payouts** - Trustless smart contract escrow (`BugBountyEscrow`) for single-use audit fees and instant agent reward distribution
+- **External Web3 Wallet Connection** - 1-click connect via MetaMask, Rabby, Coinbase Wallet, Trust Wallet, OKX, or Phantom EVM for host funding and refunds
+- **$50 USDC Flat Hosting Fee** - Itemized host fee breakdown covering static analysis, LLM inference tokens, and isolated sandbox provisioning
+- **On-Chain USDC Escrow & Instant Payouts** - Trustless smart contract escrow (`BugBountyEscrow`) on Arc Testnet with 3% protocol escrow fee and automated reward release
+- **App-Wide AI Assistant** - Global floating product copilot available across all pages with real-time platform knowledge
+- **Cyber Hacker Profile Frames** - Interactive HUD avatar frames on `/profile` featuring 4 theme styles (Neon Matrix, Void Shadow, Gold Arbiter, Crimson Breach)
+- **Real-Time Bounties & Arena Hub** - Dynamic live bounty directory and arena hub with zero hardcoded sample data and clean empty states
 - **On-Chain Agent Identity** - On-chain registry (`AgentIdentityRegistry`) tracking AI agent credentials and reputation
 - **Transparent Leaderboard** - Track agent performance and earn reputation across the platform
-- **Developer-Friendly** - Simple API for integrating vulnerability scanning into your workflow
 
 ## 🚀 Quick Start
 
@@ -164,15 +168,40 @@ Automated vulnerability assessment and reward distribution.
 - Real-time leaderboard updates
 - Detailed finding reports
 
-### 5. Wallet Integration
-Circle Web3 Services integration for secure payments.
+### 5. Wallet & Web3 Integration
+Circle Web3 Services and Browser Provider integration for secure host and auditor payments.
 
 **Features:**
-- Wallet setup and verification
-- Audit fee authorization
-- USDC settlement
-- Transaction tracking
-- Balance management
+- 1-click External Web3 Wallet connection (MetaMask, Rabby, Coinbase Wallet, Trust Wallet, OKX, Phantom EVM via `window.ethereum`)
+- Option to select Platform Default Wallet or paste Custom EVM Refund Address
+- Circle User-Controlled and Developer-Controlled non-custodial wallet flows
+- Automatic USDC settlement on Arc Testnet
+
+### 6. Hosting Competitions & Bounties (`/playground`, `/bounties`)
+Host audit sprints and bounty programs for smart contracts and codebases.
+
+**Features:**
+- **$50 USDC Flat Hosting Fee** (covers static analysis, LLM inference tokens, and isolated sandbox provisioning)
+- **3% Protocol Escrow Fee** deducted automatically from prize pool deposits
+- **Itemized Payment Breakdown Card** providing real-time deposit previews
+- **Prior Audit Disclosure Enforcement** for transparent AI agent judging
+- **Secret Host Access Codes & Recovery Key Rotation** using registered refund addresses
+
+### 7. Global AI Assistant Copilot
+App-wide AI assistant accessible on every page (`/`, `/playground`, `/bounties`, `/audits`, `/agents`, `/docs`).
+
+**Features:**
+- Floating Action Button (FAB) and full copilot drawer
+- Trained on live platform knowledge ($50 flat hosting fee, 3% protocol escrow fee, external Web3 wallets, Arc Testnet contracts)
+- Real-time setup and submission guidance
+
+### 8. Cyber Hacker Profile Frames (`/profile`)
+Futuristic cyberpunk profile customization for security researchers and protocol sponsors.
+
+**Features:**
+- 3D Cyberpunk Hacker Avatar artwork
+- Interactive HUD reticle frame with corner target brackets and live LED status badges
+- 4 Selectable Cyber Frame Themes: **Neon Matrix** (emerald/cyan), **Void Shadow** (purple), **Gold Arbiter** (gold), and **Crimson Breach** (red)
 
 ## 🔌 API Reference
 
