@@ -4,6 +4,7 @@ import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from 'next/font/goo
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { LanguageProvider } from '@/lib/language-context'
+import { AssistantFab } from '@/components/dashboard/assistant-fab'
 import './globals.css'
 
 const instrumentSans = Instrument_Sans({ 
@@ -40,6 +41,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <LanguageProvider>
             {children}
+            <AssistantFab />
             <Analytics />
           </LanguageProvider>
         </ThemeProvider>

@@ -42,6 +42,14 @@ export function DashboardHeader({ email }: { email: string }) {
             <ArrowLeft className="w-4 h-4" />
             {t("home")}
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full gap-1.5 bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
+            onClick={() => router.push("/playground")}
+          >
+            <span>Playground</span>
+          </Button>
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4">

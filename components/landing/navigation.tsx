@@ -11,11 +11,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useLanguage } from "@/lib/language-context";
 
 const navLinks = [
-  { key: "nav_agents", href: "#agents" },
-  { key: "nav_how_it_works", href: "#how-it-works" },
-  { key: "nav_rewards", href: "#rewards" },
-  { key: "nav_leaderboard", href: "#leaderboard" },
-  { key: "nav_marketplace", href: "/agents" },
+  { key: "nav_playground", label: "Playground", href: "/playground" },
+  { key: "nav_bounties", label: "Live Bounties", href: "/bounties" },
+  { key: "nav_marketplace", label: "Agents", href: "/agents" },
+  { key: "nav_docs", label: "Docs", href: "/docs" },
+  { key: "nav_blog", label: "Blog", href: "/blog" },
+  { key: "nav_profile", label: "Profile", href: "/profile" },
 ];
 
 export function Navigation() {
@@ -116,9 +117,10 @@ export function Navigation() {
             {navLinks.map((link) => {
             const commonClass =
               "text-sm text-foreground/70 hover:text-foreground transition-colors duration-300 relative group"
+            const labelText = link.label || t(link.key) || link.key
             return link.href.startsWith("/") ? (
               <Link key={link.key} href={link.href} className={commonClass}>
-                {t(link.key)}
+                {labelText}
               </Link>
             ) : (
               <a
@@ -126,7 +128,7 @@ export function Navigation() {
                 href={link.href}
                 className={commonClass}
               >
-                {t(link.key)}
+                {labelText}
                 <span className="absolute -bottom-1 left-0 w-0 h-px bg-foreground transition-all duration-300 group-hover:w-full" />
               </a>
             )

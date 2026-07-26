@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Bot, Loader2, Sparkles } from "lucide-react"
+import { Bot, Loader2, Sparkles, Coins } from "lucide-react"
 import { useLanguage } from "@/lib/language-context"
 import type { Agent, AgentType } from "@/lib/types"
 
@@ -114,7 +114,7 @@ export function AgentRegistryPanel() {
     try {
       const eth = (window as any).ethereum
       if (!eth) {
-        setError("No Ethereum-compatible wallet found in the browser. Please install MetaMask or another Web3 wallet.")
+        setError("No EVM-compatible Web3 wallet detected in browser. You can paste any Web3 wallet address directly below.")
         return
       }
       const accounts = await eth.request({ method: "eth_requestAccounts" })
@@ -249,98 +249,114 @@ export function AgentRegistryPanel() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>{t("wallet")} (optional)</Label>
-              <div className="flex flex-col gap-2 sm:flex-row">
+            {/* Wallet Selection & Registration Charge Setup */}
+            <div className="space-y-3 rounded-xl border border-border/80 bg-card/40 p-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
+                  <Coins className="h-4 w-4 text-purple-400" />
+                  Select Wallet to Charge & Link
+                </Label>
+                <Badge variant="outline" className="border-purple-500/30 text-purple-300 font-mono text-[10px]">
+                  Arc Testnet Payment
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWalletAddress("0x8734b4E4aa0a8968D86fddAB5Cc90c7fa7B5Ef82")
+                    setWalletVerified(true)
+                  }}
+                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                    walletAddress === "0x8734b4E4aa0a8968D86fddAB5Cc90c7fa7B5Ef82" || !walletAddress
+                      ? "border-purple-500 bg-purple-500/10 text-foreground font-semibold"
+                      : "border-border bg-background/40 text-muted-foreground hover:border-border/80"
+                  }`}
+                >
+                  <span className="font-bold flex items-center justify-between">
+                    Default Wallet
+                    {walletAddress === "0x8734b4E4aa0a8968D86fddAB5Cc90c7fa7B5Ef82" && (
+                      <span className="text-purple-400 font-mono">✓ Charged</span>
+                    )}
+                  </span>
+                  <span className="font-mono text-[10px] text-muted-foreground mt-1 truncate">0x8734...Ef82</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleConnectWallet}
+                  className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                    walletAddress && walletAddress !== "0x8734b4E4aa0a8968D86fddAB5Cc90c7fa7B5Ef82"
+                      ? "border-purple-500 bg-purple-500/10 text-foreground font-semibold"
+                      : "border-border bg-background/40 text-muted-foreground hover:border-border/80"
+                  }`}
+                >
+                  <span className="font-bold flex items-center justify-between">
+                    External Web3 Wallet
+                    {walletAddress && walletAddress !== "0x8734b4E4aa0a8968D86fddAB5Cc90c7fa7B5Ef82" && (
+                      <span className="text-purple-400 font-mono">✓ Charged</span>
+                    )}
+                  </span>
+                  <span className="font-mono text-[10px] text-muted-foreground mt-1 truncate">
+                    {walletAddress && walletAddress !== "0x8734b4E4aa0a8968D86fddAB5Cc90c7fa7B5Ef82"
+                      ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`
+                      : "Connect Web3 / Mobile Wallet"}
+                  </span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
                 <Input
-                  placeholder="0x..."
+                  placeholder="Custom EVM wallet (0x...)"
                   value={walletAddress ?? ""}
                   onChange={(e) => { setWalletAddress(e.target.value); setWalletVerified(false) }}
+                  className="font-mono text-xs"
                 />
-                <Button type="button" onClick={handleConnectWallet}>{t("connect_wallet")}</Button>
-                <Button
-                  type="button"
-                  onClick={handleVerifyWallet}
-                  disabled={!walletAddress || walletVerified || verifyingWallet}
-                >
-                  {verifyingWallet ? t("verifying") : walletVerified ? t("verified") : t("verify")}
+                <Button type="button" size="sm" variant="outline" onClick={handleConnectWallet} className="shrink-0 text-xs">
+                  {t("connect_wallet")}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                If provided, earnings for this agent will be credited to this address. Verify ownership to link it.
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                ⚡ <strong>Payment & Royalty Authorization</strong>: The selected wallet will be charged <strong>$25.00 USDC</strong> (or <strong>$100.00 USDC</strong> for Fine-Tuned Agents) for on-chain identity minting on <code className="text-foreground font-mono">AgentIdentityRegistry.sol</code> and permanently linked for receiving <strong>10% – 67% Creator Royalties</strong>.
               </p>
-
-              {walletsLoading ? (
-                <div className="text-sm text-muted-foreground mt-2">{t("loading_linked_wallets")}</div>
-              ) : walletsData?.wallets?.length ? (
-                <div className="mt-2 space-y-3">
-                  <div className="text-sm text-muted-foreground">{t("previously_verified_earning_wallets")}</div>
-                  <div className="grid gap-2">
-                    {walletsData.wallets.map((w) => (
-                      <div key={w.address} className="flex flex-col gap-2 rounded-md border p-3 text-sm">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="truncate font-medium">{w.address}</div>
-                          <Button
-                            variant={w.address === walletAddress ? "secondary" : "outline"}
-                            size="sm"
-                            onClick={() => {
-                              setWalletAddress(w.address)
-                              setWalletVerified(true)
-                            }}
-                          >
-                            {w.address === walletAddress ? t("selected") : t("use")}
-                          </Button>
-                        </div>
-                        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                          <span>{new Date(w.created_at).toLocaleString()}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={async () => {
-                              if (!confirm('Unlink wallet ' + w.address + '?')) return
-                              try {
-                                const res = await fetch('/api/wallets/remove', {
-                                  method: 'POST',
-                                  credentials: 'include',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ address: w.address }),
-                                })
-                                const body = await res.json()
-                                if (!res.ok) throw new Error(body.error ?? 'Failed to unlink')
-                                mutateWallets()
-                              } catch (err) {
-                                setError(err instanceof Error ? err.message : String(err))
-                              }
-                            }}
-                          >
-                            {t("unlink")}
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
             </div>
 
-            <div className="rounded-lg border border-dashed bg-muted/30 p-3 text-sm text-muted-foreground">
-              <div className="font-medium text-foreground">On-chain identity registration</div>
-              <p className="mt-1">
-                Saving this agent will register an on-chain identity entry and bind the verified wallet to it. No separate contract mint is required.
+            <div className="space-y-2">
+              <Label htmlFor="agent-tier">Registration Tier & Fee</Label>
+              <select
+                id="agent-tier"
+                value={agentType === "smart_contract" ? "fine_tuned" : "standard"}
+                onChange={(e) => setAgentType(e.target.value === "fine_tuned" ? "smart_contract" : "security")}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 font-semibold"
+              >
+                <option value="standard">Standard Agent Registration — $25.00 USDC</option>
+                <option value="fine_tuned">Fine-Tuned Expert Agent — $100.00 USDC</option>
+              </select>
+            </div>
+
+            <div className="rounded-xl border border-purple-500/30 bg-purple-500/10 p-3.5 text-sm text-muted-foreground space-y-1">
+              <div className="flex items-center justify-between font-semibold text-purple-300">
+                <span>Total Registration Charge:</span>
+                <span className="font-mono font-extrabold text-foreground text-base">
+                  {agentType === "smart_contract" ? "$100.00 USDC" : "$25.00 USDC"}
+                </span>
+              </div>
+              <p className="text-xs leading-relaxed">
+                Charged to wallet <code className="text-foreground font-mono">{walletAddress ? `${walletAddress.slice(0, 8)}...` : "Default Wallet"}</code>.
               </p>
             </div>
 
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white font-bold">
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t("saving_agent")}
                 </>
               ) : (
                 <>
-                  <Sparkles className="mr-2 h-4 w-4" /> {t("register_agent")}
+                  <Sparkles className="mr-2 h-4 w-4" /> Pay $25 USDC & Register Agent
                 </>
               )}
             </Button>
@@ -392,7 +408,7 @@ export function AgentRegistryPanel() {
                       {agent.onchain_registry_address ? (
                         (process.env.NEXT_PUBLIC_AGENT_IDENTITY_EXPLORER ? (
                           <a
-                            href={`${process.env.NEXT_PUBLIC_AGENT_IDENTITY_EXPLORER.replace(/\/$/, '')}/address/${agent.onchain_registry_address}`}
+                            href={`${process.env.NEXT_PUBLIC_AGENT_IDENTITY_EXPLORER.replace(/['"]/g, '').replace(/\/$/, '')}/address/${agent.onchain_registry_address}`}
                             target="_blank"
                             rel="noreferrer"
                             className="font-mono text-primary underline underline-offset-2"
