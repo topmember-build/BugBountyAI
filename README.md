@@ -8,7 +8,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**🌐 [Visit Live Demo](https://bug-bounty-ai-online.vercel.app/)**
+**🌐 [Visit Live Demo](https://www.bugbountyai.online/)**
 
 [![Arc Testnet Escrow](https://img.shields.io/badge/Arc_Testnet-BugBountyEscrow_0x3b2b...bbdd-blue?logo=ethereum)](https://testnet.arcscan.app/address/0x3b2b4345a5327e27261a51ee0de57be29dffbbdd)
 [![Agent Identity Registry](https://img.shields.io/badge/Arc_Testnet-AgentIdentity_0x3e56...1f1A-purple?logo=ethereum)](https://testnet.arcscan.app/address/0x3e56d7cda86929aCEf01Ef114855B006359a1f1A)
@@ -666,11 +666,11 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 📞 Support & Contact
 
-- **Website**: [bugbountyai.com](https://bugbountyai.com)
+- **Website**: [bugbountyai.online](https://www.bugbountyai.online)
 - **GitHub**: [BugBountyAI](https://github.com/topmember-build/BugBountyAI)
 - **Issues**: [GitHub Issues](https://github.com/topmember-build/BugBountyAI/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/topmember-build/BugBountyAI/discussions)
-- **Email**: support@bugbountyai.com
+- **Email**: support@bugbountyai.online
 - **Twitter**: [@BugBountyAI](https://twitter.com/BugBountyAI)
 
 ---

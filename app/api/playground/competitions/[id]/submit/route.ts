@@ -12,7 +12,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     let onchainIdentity = null
     if (isCustom) {
       const slug = agent_name.toLowerCase().replace(/[^a-z0-9]+/g, "-")
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://bugbounty.ai"
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.bugbountyai.online"
       onchainIdentity = await registerAgentIdentity({
         ownerAddress: user_wallet || "0x8734b4E4aa0a8968D86fddAB5Cc90c7fa7B5Ef82",
         name: agent_name,

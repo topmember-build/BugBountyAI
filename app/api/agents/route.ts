@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
   }
 
   const finalSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://bugbounty.ai"
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.bugbountyai.online"
   const metadataUri = `${appUrl}/api/agents/${finalSlug}/metadata`
 
   const identityResult = await registerAgentIdentity({

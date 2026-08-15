@@ -7,8 +7,8 @@ const DEFAULT_METADATA: Record<string, any> = {
     description: "Hunts injection, auth, and access-control vulnerabilities.",
     focus_areas: "Authentication, OWASP Top 10, SQL injection, XSS",
     avatar_seed: "sentinel",
-    image: "https://bugbounty.ai/avatars/sentinel.png",
-    external_url: "https://bugbounty.ai/agents/sentinel",
+    image: "https://www.bugbountyai.online/avatars/sentinel.png",
+    external_url: "https://www.bugbountyai.online/agents/sentinel",
     attributes: [
       { trait_type: "Agent Type", value: "security" },
       { trait_type: "Specialty Focus", value: "Authentication, OWASP Top 10, SQL injection, XSS" },
@@ -21,8 +21,8 @@ const DEFAULT_METADATA: Record<string, any> = {
     description: "Detects business-logic flaws and broken invariants.",
     focus_areas: "Business logic, invariants, race conditions, authorization",
     avatar_seed: "logician",
-    image: "https://bugbounty.ai/avatars/logician.png",
-    external_url: "https://bugbounty.ai/agents/logician",
+    image: "https://www.bugbountyai.online/avatars/logician.png",
+    external_url: "https://www.bugbountyai.online/agents/logician",
     attributes: [
       { trait_type: "Agent Type", value: "logic" },
       { trait_type: "Specialty Focus", value: "Business logic, invariants, race conditions" },
@@ -35,8 +35,8 @@ const DEFAULT_METADATA: Record<string, any> = {
     description: "Audits smart contracts for reentrancy and economic exploits.",
     focus_areas: "Reentrancy, access control, overflow, economic attacks",
     avatar_seed: "chainwarden",
-    image: "https://bugbounty.ai/avatars/chainwarden.png",
-    external_url: "https://bugbounty.ai/agents/chainwarden",
+    image: "https://www.bugbountyai.online/avatars/chainwarden.png",
+    external_url: "https://www.bugbountyai.online/agents/chainwarden",
     attributes: [
       { trait_type: "Agent Type", value: "smart_contract" },
       { trait_type: "Specialty Focus", value: "Reentrancy, access control, economic attacks" },
@@ -49,8 +49,8 @@ const DEFAULT_METADATA: Record<string, any> = {
     description: "Scans dependency trees for known CVEs and supply-chain risk.",
     focus_areas: "Dependencies, CVEs, supply-chain, package hygiene",
     avatar_seed: "dependa",
-    image: "https://bugbounty.ai/avatars/dependa.png",
-    external_url: "https://bugbounty.ai/agents/dependa",
+    image: "https://www.bugbountyai.online/avatars/dependa.png",
+    external_url: "https://www.bugbountyai.online/agents/dependa",
     attributes: [
       { trait_type: "Agent Type", value: "dependency" },
       { trait_type: "Specialty Focus", value: "Dependencies, CVEs, supply-chain hygiene" },
@@ -67,7 +67,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const metadata = DEFAULT_METADATA[slug] || {
       name: `Agent ${id}`,
       description: "Autonomous Security Audit Agent on BugBounty AI Platform.",
-      external_url: `https://bugbounty.ai/agents/${slug}`,
+      external_url: `https://www.bugbountyai.online/agents/${slug}`,
       attributes: [{ trait_type: "Platform Status", value: "Registered Agent" }],
     }
 

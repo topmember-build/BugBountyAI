@@ -104,7 +104,7 @@ async function registerIdentity(agent) {
       return { status: 'ready', onchainAgentId: existingId.toString(), registryAddress }
     }
 
-    const tx = await contract.registerAgent(ownerAddress, agent.name, `https://bugbounty.ai/agents/${agent.slug}`)
+    const tx = await contract.registerAgent(ownerAddress, agent.name, `https://www.bugbountyai.online/agents/${agent.slug}`)
     await tx.wait()
     const createdId = await contract.getAgentIdByOwner(ownerAddress)
     return {

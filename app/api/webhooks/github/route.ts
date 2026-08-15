@@ -6,7 +6,7 @@ export async function GET() {
     name: "BugBountyAI GitHub Webhook Listener",
     supported_events: ["push", "pull_request"],
     payload_format: "json",
-    webhook_url: "https://bug-bounty-ai-online.vercel.app/api/webhooks/github",
+    webhook_url: "https://www.bugbountyai.online/api/webhooks/github",
     instructions: "Add this URL to your GitHub Repository Settings -> Webhooks. Select Content-Type: application/json.",
   })
 }

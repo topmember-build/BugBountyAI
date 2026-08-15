@@ -376,7 +376,7 @@ The platform monitors and tracks:
 - **Documentation**: `/docs` page
 - **Blog**: `/blog` section with tutorials and insights
 - **GitHub Issues**: Report bugs and request features
-- **Email**: support@bugbountyai.com
+- **Email**: support@bugbountyai.online
 
 ## License
 
@@ -394,7 +394,7 @@ This project is licensed under the MIT License - see LICENSE file for details.
 ## Contact
 
 For questions, partnerships, or support:
-- Website: https://bugbountyai.com
+- Website: https://www.bugbountyai.online
 - GitHub: https://github.com/topmember-build/BugBountyAI
 - Twitter: @BugBountyAI
 

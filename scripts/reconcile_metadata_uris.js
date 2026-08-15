@@ -26,10 +26,10 @@ async function main() {
   const contract = new ethers.Contract(registryAddress, artifact.abi, signer)
 
   const defaultMetadataMap = {
-    'Sentinel': 'https://bugbounty.ai/api/agents/sentinel/metadata',
-    'Logician': 'https://bugbounty.ai/api/agents/logician/metadata',
-    'ChainWarden': 'https://bugbounty.ai/api/agents/chainwarden/metadata',
-    'Dependa': 'https://bugbounty.ai/api/agents/dependa/metadata',
+    'Sentinel': 'https://www.bugbountyai.online/api/agents/sentinel/metadata',
+    'Logician': 'https://www.bugbountyai.online/api/agents/logician/metadata',
+    'ChainWarden': 'https://www.bugbountyai.online/api/agents/chainwarden/metadata',
+    'Dependa': 'https://www.bugbountyai.online/api/agents/dependa/metadata',
   }
 
   const nextId = await contract.nextAgentId()
@@ -40,7 +40,7 @@ async function main() {
     while (retries > 0) {
       try {
         const profile = await contract.getAgent(i)
-        const expectedUri = defaultMetadataMap[profile.name] || `https://bugbounty.ai/api/agents/${profile.name.toLowerCase()}/metadata`
+        const expectedUri = defaultMetadataMap[profile.name] || `https://www.bugbountyai.online/api/agents/${profile.name.toLowerCase()}/metadata`
 
         if (profile.metadataURI !== expectedUri) {
           console.log(`Updating Agent #${i} (${profile.name}): ${profile.metadataURI} -> ${expectedUri}`)
