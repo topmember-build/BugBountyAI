@@ -10,7 +10,24 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, ShieldCheck, GitBranch, Package, FileCode2, Check, Minus } from "lucide-react"
+import {
+  Loader2,
+  ShieldCheck,
+  GitBranch,
+  Package,
+  FileCode2,
+  Check,
+  Minus,
+  Zap,
+  Cpu,
+  Sparkles,
+  ArrowRight,
+  ShieldAlert,
+  BellRing,
+  CheckCircle2,
+  Layers,
+  Coins
+} from "lucide-react"
 
 const selectableAgents = [
   { id: "security", name: "Security Agent", icon: ShieldCheck },
@@ -32,6 +49,8 @@ export function AuditSubmitForm({
   archiveFilename?: string | null
   initialSelectedAgentIds?: string[]
 }) {
+  const [scanEngine, setScanEngine] = useState<"basic" | "sie">("basic")
+  const [sieWaitlistJoined, setSieWaitlistJoined] = useState(false)
   const [scanType, setScanType] = useState<"github" | "smart_contract_paste" | "smart_contract_file" | "project_folder">(
     archivePath ? "project_folder" : "github"
   )
@@ -134,6 +153,12 @@ export function AuditSubmitForm({
     setIsSubmitting(true)
     setError(null)
     setSuccessMessage(null)
+
+    if (scanEngine === "sie") {
+      setError("The Security Intelligence Engine (SIE) is currently in closed beta. Please switch to Basic Scan to launch your audit immediately.")
+      setIsSubmitting(false)
+      return
+    }
 
     if (!feeTransactionId) {
       setError("Authorize the audit fee with your Circle wallet before submitting.")
@@ -261,8 +286,189 @@ export function AuditSubmitForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="border border-border rounded-xl bg-card p-6 lg:p-8"
+      className="border border-border rounded-xl bg-card p-6 lg:p-8 space-y-6"
     >
+      {/* Scan Engine Selection (Basic Scan vs SIE Engine) */}
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <Label className="text-base font-semibold text-foreground">Select Analysis Engine</Label>
+            <p className="text-xs text-muted-foreground">
+              Choose between standard swarm heuristic audit or deep critical analysis.
+            </p>
+          </div>
+
+          <Link
+            href="/docs/x402"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono bg-purple-500/10 text-purple-400 border border-purple-500/25 hover:bg-purple-500/20 transition-colors w-fit"
+            title="Learn how autonomous agents scan via x402 HTTP micropayments"
+          >
+            <Coins className="w-3.5 h-3.5 text-purple-400" />
+            <span>x402 Agent API Active</span>
+            <ArrowRight className="w-3 h-3 ml-0.5 text-purple-400" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          {/* Basic Scan Option */}
+          <div
+            onClick={() => setScanEngine("basic")}
+            className={`cursor-pointer relative flex flex-col justify-between p-4 rounded-xl border transition-all duration-200 ${
+              scanEngine === "basic"
+                ? "border-primary bg-primary/5 shadow-xs ring-1 ring-primary/40"
+                : "border-border hover:border-primary/40 bg-card/50 hover:bg-accent/40"
+            }`}
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-lg ${scanEngine === "basic" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                    <Zap className="w-4 h-4" />
+                  </div>
+                  <span className="font-semibold text-sm">Basic Scan</span>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/25">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Active
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Standard multi-agent heuristic & AST security scan. Rapid triage across security, logic, dependencies, and smart contracts.
+              </p>
+            </div>
+            
+            <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+              <span className="flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-primary" />
+                4 Specialist Agents
+              </span>
+              <span className="text-emerald-500 font-medium">⚡ ~10s Triage</span>
+            </div>
+          </div>
+
+          {/* SIE Engine Option */}
+          <div
+            onClick={() => setScanEngine("sie")}
+            className={`cursor-pointer relative flex flex-col justify-between p-4 rounded-xl border transition-all duration-200 ${
+              scanEngine === "sie"
+                ? "border-purple-500/60 bg-purple-500/10 dark:bg-purple-950/25 shadow-xs ring-1 ring-purple-500/40"
+                : "border-border hover:border-purple-500/40 bg-card/50 hover:bg-accent/40"
+            }`}
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-lg ${scanEngine === "sie" ? "bg-purple-600 text-white shadow-xs shadow-purple-500/20" : "bg-purple-500/10 text-purple-400"}`}>
+                    <Cpu className="w-4 h-4" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-sm">SIE Engine</span>
+                    <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping" />
+                  Coming Soon
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Security Intelligence Engine for deep & critical analysis. Multi-pass symbolic execution, deep taint tracking & zero-day exploit simulation.
+              </p>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+              <span className="flex items-center gap-1.5 text-purple-400">
+                <ShieldAlert className="w-3.5 h-3.5" />
+                Deep Critical Analysis
+              </span>
+              <span className="text-purple-400 font-medium">Closed Beta Q3</span>
+            </div>
+          </div>
+        </div>
+
+        {/* SIE Coming Soon Feature Preview Panel */}
+        {scanEngine === "sie" && (
+          <div className="rounded-xl border border-purple-500/30 bg-gradient-to-b from-purple-500/10 via-purple-500/5 to-transparent p-5 space-y-4 animate-in fade-in-50 duration-300">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                    SIE v2.0 ARCHITECTURE
+                  </span>
+                  <h4 className="font-semibold text-sm text-foreground">
+                    Security Intelligence Engine is in development
+                  </h4>
+                </div>
+                <p className="text-xs text-muted-foreground max-w-2xl">
+                  We are building the next-generation SIE Engine to provide mathematical formal verification, multi-step exploit generation, and cross-contract taint tracing for mission-critical protocols.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {sieWaitlistJoined ? (
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-purple-300 bg-purple-500/20 border border-purple-500/40 px-3 py-1.5 rounded-lg">
+                    <CheckCircle2 className="w-4 h-4 text-purple-400" />
+                    Added to Closed Beta Waitlist
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setSieWaitlistJoined(true)}
+                    className="bg-purple-600 hover:bg-purple-500 text-white text-xs gap-1.5 h-8"
+                  >
+                    <BellRing className="w-3.5 h-3.5" />
+                    Join Early Access
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setScanEngine("basic")}
+                  className="text-xs gap-1.5 h-8 border-border hover:bg-muted"
+                >
+                  <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                  Use Basic Scan
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="p-3 rounded-lg border border-border/60 bg-card/60 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs font-medium text-purple-400">
+                  <Cpu className="w-3.5 h-3.5" />
+                  Symbolic Invariant Prover
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Formal verification & automated SMT constraint solving to detect mathematical logic drifts and reentrancy edge cases.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg border border-border/60 bg-card/60 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs font-medium text-purple-400">
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  PoC Exploit Simulator
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Autonomous synthesis of zero-day proof-of-concept payloads executed in isolated EVM sandboxes.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-lg border border-border/60 bg-card/60 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs font-medium text-purple-400">
+                  <Layers className="w-3.5 h-3.5" />
+                  Cross-Protocol Taint Tracking
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Deep tracking of external Oracle dependencies, Flash Loan vectors, and composable DeFi execution flows.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="space-y-6">
         {/* Scan Target Selection */}
         <div className="space-y-4">
@@ -549,10 +755,31 @@ export function AuditSubmitForm({
         </div>
 
         {/* Submit Section */}
-        <div className="flex items-center gap-2 pt-2">
-          <Button type="submit" disabled={isSubmitting || selectedAgents.length === 0}>
-            {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</> : "Request audit"}
-          </Button>
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          {scanEngine === "sie" ? (
+            <Button
+              type="button"
+              onClick={() => setScanEngine("basic")}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-xs"
+            >
+              <Zap className="w-4 h-4 mr-2 text-emerald-300" />
+              Switch to Basic Scan & Launch Audit
+            </Button>
+          ) : (
+            <Button type="submit" disabled={isSubmitting || (selectedAgents.length === 0 && selectedAgentIds.length === 0)}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Submitting Basic Scan...
+                </>
+              ) : (
+                <>
+                  <Zap className="w-4 h-4 mr-2 text-emerald-400" />
+                  Request Basic Audit
+                </>
+              )}
+            </Button>
+          )}
         </div>
 
         {error ? <div className="text-sm text-destructive">{error}</div> : null}

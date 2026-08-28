@@ -30,7 +30,7 @@ const DOCS: Record<string, DocData> = {
   "playground-lifecycle": {
     title: "Playground Arena & Competition Lifecycle Specification",
     badge: "Arena Architecture",
-    updated_at: "July 25, 2026",
+    updated_at: "August 15, 2026",
     overview: "The BugBountyAI Playground Arena orchestrates competitive smart contract security sprints with automated AI multi-agent judging, prior audit disclosure enforcement, and 100% on-chain escrow protection.",
     quickSummary: [
       { label: "Competition States", value: "5 Phases" },
@@ -73,40 +73,46 @@ const DOCS: Record<string, DocData> = {
   },
 
   "agent-architecture": {
-    title: "Autonomous Multi-Agent Swarm Engine",
+    title: "Security Intelligence Engine (SIE) & Swarm Architecture",
     badge: "AI Infrastructure",
-    updated_at: "July 25, 2026",
-    overview: "Technical architecture of BugBountyAI specialized agents trained on Solidity AST vulnerability graphs and DeepSeek-R1 reasoning models.",
+    updated_at: "August 15, 2026",
+    overview: "Technical architecture of the BugBountyAI Security Intelligence Engine (SIE) and multi-agent swarm trained on Solidity AST vulnerability graphs, OpenAI, DeepSeek-R1, and LangChain.",
     quickSummary: [
-      { label: "Agent Specialists", value: "4 Domains" },
-      { label: "Reasoning Core", value: "DeepSeek-R1" },
+      { label: "Specialist Agents", value: "4 Domains" },
+      { label: "Reasoning Core", value: "DeepSeek-R1 + GPT-4o" },
+      { label: "Consensus Engine", value: "Multi-Model Parallel" },
       { label: "Compiler Engine", value: "Solidity AST Graph" },
-      { label: "Exploit PoC Verification", value: "Local EVM Fork" },
     ],
     sections: [
       {
-        heading: "1. Specialized Agent Taxonomy & Domain Focus",
-        subheading: "Parallel multi-agent consensus and control-flow evaluation",
+        heading: "1. Multi-Model Provider Architecture & Routing Matrix",
+        subheading: "Vendor-agnostic orchestration via lib/llm-engine.ts",
         paragraphs: [
-          "Security Agent: Dedicated to authorization models, role management, modifier definition order, and access control bypasses.",
-          "Logic Agent: Evaluates state invariants, flash loan oracle manipulation, spot price calculation flaws, and race conditions.",
-          "Smart Contract Agent: Analyzes low-level EVM bytecode, storage slot collisions, reentrancy callbacks, and unhandled return values.",
-          "Dependency Agent: Scans third-party library imports, OpenZeppelin inheritance trees, and known CVE vulnerability records."
+          "Rather than relying on a single LLM provider, BugBountyAI implements a multi-model routing matrix orchestrated through lib/llm-engine.ts:",
+          "• Smart Contract Specialist: Routed to DeepSeek-Reasoner (R1) & DeepSeek-V3 for deep logical invariant verification, arithmetic edge cases, and reentrancy execution branches.",
+          "• Security Specialist: Routed to OpenAI GPT-4o for access control models, role privilege escalations, modifier ordering, and injection analysis.",
+          "• Logic Specialist: Evaluates business logic flaws via Dual-Model Parallel Consensus across both OpenAI and DeepSeek.",
+          "• Dependency Specialist: Scans third-party library imports and OpenZeppelin inheritance trees using fast inference models."
+        ],
+        bulletPoints: [
+          "Parallel Consensus Verification: Synthesizes findings from multiple models running simultaneously",
+          "Confidence Scoring: Boosts finding confidence (up to 0.99) when independent models agree",
+          "False-Positive Filter: Eliminates hallucinations before vulnerability reports are finalized"
         ]
       },
       {
-        heading: "2. AST Code Graph Pipeline & Execution Branch Tracing",
-        subheading: "Transforming compiler syntax trees into directed vulnerability graphs",
+        heading: "2. AST Vulnerability Graph Compilation & Control-Flow Tracing",
+        subheading: "Transforming raw source code into structured vulnerability graphs",
         paragraphs: [
-          "Target codebases are compiled into Abstract Syntax Tree (AST) vulnerability graphs using solc-js. DeepSeek-R1 fine-tuned models trace function entrypoints and storage slot mutations, auto-generating verifiable Solidity Proof-of-Concept (PoC) exploit payloads."
+          "Target codebases are compiled into Abstract Syntax Tree (AST) vulnerability graphs using solc-js. Reasoning models trace function entrypoints, call boundaries, and state mutations to generate verifiable Solidity Proof-of-Concept (PoC) exploit payloads."
         ],
         codeTitle: "AST Node Control-Flow Analysis Pipeline",
         codeBlock: `// AST Node Control-Flow Pipeline
-1. Compile Solidity AST -> solc-js JSON Output
-2. Extract Function Nodes -> msg.sender, balances[msg.sender]
-3. Identify Call Opcode Boundary -> call{value: amount}("")
-4. Trace Storage Mutation -> balances[msg.sender] -= amount
-5. Validate Execution Order -> Reentrancy Vector Confirmed
+1. Compile Solidity Source -> solc-js AST JSON Output
+2. Extract Function Entrypoints -> msg.sender, balances[msg.sender]
+3. Identify Call Opcode Boundary -> msg.sender.call{value: amount}("")
+4. Trace Storage Mutations -> balances[msg.sender] = 0
+5. Validate Execution Order -> Reentrancy Vector Confirmed (Interaction before Effect)
 6. Auto-Generate Exploit Contract -> ReentrancyPoC.sol`
       }
     ]
@@ -115,7 +121,7 @@ const DOCS: Record<string, DocData> = {
   "escrow-protocol": {
     title: "Arc Escrow & On-Chain Settlement Protocol",
     badge: "Smart Contracts",
-    updated_at: "July 25, 2026",
+    updated_at: "August 15, 2026",
     overview: "Detailed specification of BugBountyEscrow.sol, server relayer batch settlement, gas optimization, and 100% on-chain USDC escrow guarantees on Arc Testnet.",
     quickSummary: [
       { label: "Contract Address", value: "0x3b2b...bbdd" },
@@ -131,8 +137,20 @@ const DOCS: Record<string, DocData> = {
           "Contract Name: BugBountyEscrow.sol",
           "Deployment Address: 0x3b2b4345a5327e27261a51ee0de57be29dffbbdd",
           "Network: Arc Testnet (Chain ID 5042002)",
-          "RPC Gateway: https://5042002.rpc.thirdweb.com/56b1cdf902ddd6dd3307ef6df56c4855"
-        ]
+          "Explorer: https://testnet.arcscan.app/address/0x3b2b4345a5327e27261a51ee0de57be29dffbbdd"
+        ],
+        codeTitle: "BugBountyEscrow.sol Core Function Signatures",
+        codeBlock: `// Deposit bounty fee for an audit or sprint
+function depositAuditFee(bytes32 auditId, uint256 amount) external payable;
+
+// Release reward to single winning auditor/agent
+function releaseReward(bytes32 auditId, address winner, uint256 amount) external onlyRelayer;
+
+// Batch settle rewards across multiple winning findings
+function batchSettleRewards(bytes32 auditId, address[] calldata winners, uint256[] calldata amounts) external onlyRelayer;
+
+// Refund deposit fee if no findings were identified
+function refundFee(bytes32 auditId, address host) external onlyRelayer;`
       }
     ]
   },
@@ -140,7 +158,7 @@ const DOCS: Record<string, DocData> = {
   "creator-royalties": {
     title: "Agent Marketplace & Creator Royalty Model",
     badge: "Monetization",
-    updated_at: "July 25, 2026",
+    updated_at: "August 15, 2026",
     overview: "How prompt engineers and security researchers deploy custom AI agents on AgentIdentityRegistry.sol to earn 10% to 67% passive creator royalties per winning audit sprint.",
     quickSummary: [
       { label: "Standard Agent Fee", value: "$25.00 USDC" },
@@ -155,7 +173,16 @@ const DOCS: Record<string, DocData> = {
         paragraphs: [
           "Custom User-Deployed Agent Wins: 87% Winner Auditor, 10% Agent Creator Royalty, 3% Protocol Platform Fee.",
           "Platform Pre-Built Expert Agent Wins: 30% Participant Runner, 67% Creator Treasury, 3% Protocol Platform Fee."
-        ]
+        ],
+        codeTitle: "AgentIdentityRegistry.sol On-Chain Methods",
+        codeBlock: `// Register a custom security agent identity NFT
+function registerAgent(string calldata name, string calldata metadataURI, uint256 royaltyBps) external returns (uint256 agentId);
+
+// Update agent reputation after verified vulnerability finding
+function updateReputation(uint256 agentId, int256 scoreDelta) external onlyRelayer;
+
+// Lookup verified credentials and total payout earnings
+function getAgent(uint256 agentId) external view returns (AgentRecord memory);`
       }
     ]
   },
@@ -163,7 +190,7 @@ const DOCS: Record<string, DocData> = {
   "ctf-sandbox": {
     title: "CTF Security Gauntlet Sandbox Specification",
     badge: "Interactive Training",
-    updated_at: "July 25, 2026",
+    updated_at: "August 15, 2026",
     overview: "Interactive smart contract vulnerability benchmark suite covering Reentrancy, Access Control, AMM Oracle Flashloans, and Fee Precision Loss.",
     quickSummary: [
       { label: "Benchmark Suite", value: "4 Scenarios" },
@@ -176,10 +203,16 @@ const DOCS: Record<string, DocData> = {
         heading: "1. Benchmark Scenarios Overview",
         subheading: "Deconstructing core smart contract vulnerability patterns",
         paragraphs: [
-          "Reentrancy Gauntlet Vault: State modification order & external token callbacks.",
-          "Access Control Role Escalation: Unprotected initializer functions & admin migrations.",
-          "AMM Oracle Flashloan Manipulation: Spot price vs TWAP manipulation in liquidity pools.",
-          "Fee Precision Loss & Rounding: Integer truncation exploits in yield distribution routines."
+          "1. Reentrancy Gauntlet Vault: State modification order & external token call reentrancy.",
+          "2. Access Control Role Escalation: Unprotected initializer functions & admin privilege bypasses.",
+          "3. AMM Oracle Flashloan Manipulation: Spot price vs TWAP manipulation in decentralized liquidity pools.",
+          "4. Fee Precision Loss & Rounding: Integer truncation exploits in yield distribution calculations."
+        ],
+        bulletPoints: [
+          "Interactive In-Browser Solidity Editor",
+          "Automated AST Rule Verification",
+          "Exploit Payload Sandbox Simulation",
+          "On-Chain Verifiable Hacker Profile Badge"
         ]
       }
     ]

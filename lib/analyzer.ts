@@ -1,9 +1,7 @@
 import "server-only"
-import { generateText, Output } from "ai"
 import { z } from "zod"
 import type { AgentType, Severity } from "@/lib/types"
-
-const ANALYSIS_MODEL = process.env.BUGBOUNTY_MODEL ?? "openai/gpt-5-mini"
+import { runMultiModelConsensusAudit } from "@/lib/llm-engine"
 
 const findingSchema = z.object({
   title: z.string().describe("Short, specific vulnerability title"),
@@ -41,6 +39,8 @@ export interface AnalyzedFinding {
   line_end: number
   description: string
   recommendation: string
+  models_agreeing?: string[]
+  consensus_score?: number
 }
 
 export interface AnalysisResult {
@@ -101,11 +101,10 @@ export async function analyzeRepository(input: {
       )
     : "Use all four agent specialties as appropriate."
 
-  const { experimental_output } = await generateText({
-    model: ANALYSIS_MODEL,
-    experimental_output: Output.object({ schema: analysisSchema }),
+  const output = await runMultiModelConsensusAudit({
+    schema: analysisSchema,
     system: [
-      "You are BugBountyAI, an autonomous security audit swarm composed of four specialist agents:",
+      "You are BugBountyAI Security Intelligence Engine (SIE), an autonomous security audit swarm composed of specialist agents:",
       "- security: injection, auth, access control, secrets, SSRF, XSS",
       "- logic: business-logic flaws, broken invariants, race conditions",
       "- dependency: vulnerable/outdated packages, supply-chain risk (CVEs)",
@@ -125,12 +124,10 @@ export async function analyzeRepository(input: {
     ].filter(Boolean).join("\n"),
   })
 
-  const output = experimental_output as z.infer<typeof analysisSchema>
-
   return {
     repoName: output.repo_name,
     summary: output.summary,
-    findings: output.findings.map((f) => ({
+    findings: output.findings.map((f: any) => ({
       title: f.title,
       severity: f.severity,
       confidence: f.confidence,
@@ -141,6 +138,8 @@ export async function analyzeRepository(input: {
       line_end: f.line_end,
       description: f.description,
       recommendation: f.recommendation,
+      models_agreeing: f.models_agreeing,
+      consensus_score: f.consensus_score,
     })),
   }
 }

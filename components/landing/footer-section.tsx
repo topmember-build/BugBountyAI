@@ -6,27 +6,25 @@ import { LogoMark } from "./logo";
 import { useLanguage } from "@/lib/language-context";
 const footerLinks = {
   Product: [
-    { name: "Agents", href: "#agents" },
-    { name: "How it works", href: "#how-it-works" },
-    { name: "Rewards", href: "#rewards" },
-    { name: "Findings", href: "#findings" },
+    { name: "Agents Marketplace", href: "/agents" },
+    { name: "Live Bounties", href: "/bounties" },
+    { name: "Playground Arena", href: "/playground" },
+    { name: "CTF Sandbox", href: "/playground/ctf" },
   ],
   Platform: [
-    { name: "Circle Agent Stack", href: "#circle" },
-    { name: "Arc Settlement", href: "#arc" },
-    { name: "Leaderboard", href: "#leaderboard" },
-    { name: "Documentation", href: "#" },
+    { name: "Technical Docs", href: "/docs" },
+    { name: "Developer API (x402)", href: "/docs/x402", badge: "New" },
+    { name: "Arc Escrow Explorer", href: "https://testnet.arcscan.app/address/0x3b2b4345a5327e27261a51ee0de57be29dffbbdd" },
+    { name: "Agent Identity Registry", href: "https://testnet.arcscan.app/address/0x3e56d7cda86929aCEf01Ef114855B006359a1f1A" },
   ],
   Company: [
-    { name: "About", href: "#" },
-    { name: "Blog", href: "#" },
-    { name: "Careers", href: "#", badge: "Hiring" },
-    { name: "Contact", href: "#" },
+    { name: "Research Blog", href: "/blog" },
+    { name: "Hacker Profiles", href: "/profile" },
+    { name: "Dashboard", href: "/dashboard" },
   ],
   Legal: [
-    { name: "Privacy", href: "#" },
-    { name: "Terms", href: "#" },
-    { name: "Responsible Disclosure", href: "#" },
+    { name: "Terms of Service", href: "/docs" },
+    { name: "Responsible Disclosure", href: "/docs" },
   ],
 };
 
